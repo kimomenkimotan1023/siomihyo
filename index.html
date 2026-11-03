@@ -103,450 +103,356 @@
       content: '';
       position: absolute;
       inset: -4px;
-      border-radius: 50%;
-      background-color: #f43f5e;
+      border-radius: 9999px;
+      background-color: currentColor;
       animation: pulse-ring 1.8s cubic-bezier(0.215, 0.61, 0.355, 1) infinite;
     }
 
-    /* キャンバス操作時のタッチスクロール防止（横ドラッグでインスペクト） */
-    #tideCanvas {
-      touch-action: pan-y;
-      cursor: crosshair;
-    }
+    /* CDN遅延・ブロック時でもスマホレイアウトを100%維持するフォールバックCSS */
+    *, *::before, *::after { box-sizing: border-box; }
+    html, body { margin: 0; padding: 0; font-family: "Inter", "Noto Sans JP", sans-serif; }
+    .app-shell { max-width: 480px; width: 100%; margin: 0 auto; min-height: 100vh; display: flex; flex-direction: column; padding-bottom: 16px; }
+    .summary-grid-4 { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; }
+    .tab-grid-3 { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 4px; }
+    .hidden { display: none !important; }
+    select, input, button { font-family: inherit; }
+    #tideSvgChart { width: 100%; height: 100%; display: block; touch-action: pan-y; user-select: none; -webkit-user-select: none; }
   </style>
 </head>
-<body class="min-h-screen pb-24 lg:pb-12 selection:bg-sky-500 selection:text-white">
+<body class="min-h-screen flex flex-col justify-between selection:bg-sky-500 selection:text-white">
+  <div class="app-shell max-w-[480px] w-full mx-auto flex-1 flex flex-col pb-4">
 
-  <!-- トップ固定ヘッダー -->
-  <header class="sticky top-0 z-40 glass-card border-b border-sky-500/20 shadow-lg shadow-black/40">
-    <div class="max-w-7xl mx-auto px-3 sm:px-6 py-2.5">
-      <div class="flex flex-wrap items-center justify-between gap-2">
-        
-        <!-- ロゴ＆タイトル -->
-        <div class="flex items-center gap-2.5">
-          <div class="w-9 h-9 rounded-xl bg-gradient-to-br from-sky-400 via-cyan-500 to-emerald-500 flex items-center justify-center shadow-md shadow-sky-500/20">
-            <i class="fa-solid fa-water text-marine-950 text-lg"></i>
+    <!-- スリム固定ヘッダー（2段＋エリア高速絞込バー） -->
+    <header class="sticky top-0 z-40 glass-card border-b border-sky-500/20 px-2.5 py-1.5 shadow-md shadow-black/40">
+      <!-- 1段目：ロゴ・港選択プルダウン・お気に入り★・GPS現在地・自動更新＆リフレッシュ -->
+      <div class="flex items-center justify-between gap-1">
+        <div class="flex items-center gap-1 shrink-0">
+          <div class="w-6 h-6 rounded-lg bg-gradient-to-br from-sky-400 to-emerald-500 flex items-center justify-center shadow-sm">
+            <i class="fa-solid fa-water text-marine-950 text-xs"></i>
           </div>
-          <div>
-            <div class="flex items-center gap-1.5">
-              <h1 class="font-black text-base sm:text-lg tracking-tight bg-gradient-to-r from-white via-sky-200 to-emerald-300 bg-clip-text text-transparent">
-                TidePulse <span class="text-amber-400">BI</span>
-              </h1>
-              <span id="liveIndicator" class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
-                <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping"></span>LIVE
-              </span>
-            </div>
-            <p class="text-[10px] text-slate-400 leading-none">潮見表・釣果活性指数(BI)・気象連動システム</p>
-          </div>
+          <span class="font-black text-xs tracking-tight text-white hidden xs:inline">Tide<span class="text-amber-400">BI</span></span>
         </div>
 
-        <!-- 港・ポイント選択 ＆ GPSボタン -->
-        <div class="flex items-center gap-1.5 flex-1 sm:flex-initial justify-end min-w-[230px]">
-          <div class="relative flex-1 sm:w-56">
-            <i class="fa-solid fa-anchor absolute left-3 top-1/2 -translate-y-1/2 text-sky-400 text-xs pointer-events-none"></i>
-            <select id="portSelect" aria-label="釣り場・港を選択" class="w-full pl-8 pr-7 py-2 rounded-xl bg-marine-900/90 border border-sky-500/30 text-xs sm:text-sm font-bold text-white focus:outline-none focus:border-sky-400 transition appearance-none truncate">
-              <!-- JSでプリセット港を生成 -->
-            </select>
-            <i class="fa-solid fa-chevron-down absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 text-xs pointer-events-none"></i>
-          </div>
-
-          <button id="gpsBtn" type="button" title="現在地から最寄りの港・座標を取得" class="px-3 py-2 rounded-xl bg-sky-500/20 hover:bg-sky-500/30 active:scale-95 border border-sky-400/40 text-sky-300 text-xs font-bold flex items-center gap-1.5 transition shrink-0">
-            <i class="fa-solid fa-location-crosshairs"></i>
-            <span class="hidden sm:inline">現在地</span>
-          </button>
-
-          <button id="refreshBtn" type="button" title="今すぐ最新データに更新" class="p-2 rounded-xl bg-marine-800 hover:bg-marine-700 active:scale-95 border border-slate-700 text-slate-300 text-xs transition shrink-0">
-            <i id="refreshIcon" class="fa-solid fa-rotate"></i>
-          </button>
+        <!-- 港プルダウン（optgroup対応） -->
+        <div class="relative flex-1 min-w-0">
+          <i class="fa-solid fa-anchor absolute left-2 top-1/2 -translate-y-1/2 text-sky-400 text-[10px] pointer-events-none"></i>
+          <select id="portSelect" aria-label="釣り場・港を選択" class="w-full pl-5 pr-5 py-1 rounded-lg bg-marine-900/95 border border-sky-500/30 text-xs font-bold text-white focus:outline-none focus:border-sky-400 appearance-none truncate">
+            <!-- JSで関東・静岡・全国の港プリセットを生成 -->
+          </select>
+          <i class="fa-solid fa-chevron-down absolute right-1.5 top-1/2 -translate-y-1/2 text-slate-400 text-[9px] pointer-events-none"></i>
         </div>
 
+        <!-- お気に入り港登録（★）ボタン -->
+        <button id="favPortBtn" type="button" title="現在の港をお気に入り登録/解除" class="w-6 h-6 rounded-lg bg-marine-800 hover:bg-marine-700 active:scale-95 border border-slate-700 text-slate-400 text-xs flex items-center justify-center shrink-0 transition">
+          <i id="favPortIcon" class="fa-regular fa-star"></i>
+        </button>
+
+        <!-- GPS現在地ボタン -->
+        <button id="gpsBtn" type="button" title="現在地から最寄りの港を取得" class="px-2 py-1 rounded-lg bg-sky-500/20 hover:bg-sky-500/30 active:scale-95 border border-sky-400/40 text-sky-300 text-[11px] font-bold flex items-center gap-1 shrink-0">
+          <i class="fa-solid fa-location-crosshairs text-[11px]"></i>
+          <span>現在地</span>
+        </button>
+
+        <!-- 自動更新トグル（LIVEバッジ）＆更新ボタン -->
+        <button id="autoUpdateBtn" type="button" title="自動更新ON/OFF切替" class="px-1.5 py-1 rounded-lg bg-emerald-500/20 border border-emerald-500/40 text-emerald-300 text-[10px] font-bold flex items-center gap-1 shrink-0 active:scale-95">
+          <span id="liveDot" class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping"></span>
+          <span id="liveText">自動</span>
+        </button>
+
+        <button id="refreshBtn" type="button" title="最新データに更新" class="w-6 h-6 rounded-lg bg-marine-800 hover:bg-marine-700 active:scale-95 border border-slate-700 text-slate-300 text-[11px] flex items-center justify-center shrink-0">
+          <i id="refreshIcon" class="fa-solid fa-rotate"></i>
+        </button>
       </div>
 
-      <!-- 日付ナビゲーションバー & 自動更新ステータス -->
-      <div class="mt-2.5 pt-2 border-t border-slate-800/80 flex flex-wrap items-center justify-between gap-2">
-        <!-- 日付コントロール -->
-        <div class="flex items-center gap-1 sm:gap-1.5 w-full sm:w-auto justify-between sm:justify-start">
-          <button id="prevDayBtn" type="button" class="px-2.5 py-1.5 rounded-lg bg-marine-800/90 hover:bg-marine-700 active:scale-95 text-slate-200 text-xs font-semibold flex items-center gap-1 border border-slate-700/70">
-            <i class="fa-solid fa-chevron-left text-[10px]"></i> 前日
+      <!-- エリア高速絞込チップバー（関東・静岡のエリア別ワンタップ切替） -->
+      <div id="areaFilterBar" class="mt-1 flex items-center gap-1 overflow-x-auto no-scrollbar py-0.5">
+        <button type="button" data-area="all" class="area-chip px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-sky-500 text-marine-950 shrink-0 transition">すべて(48)</button>
+        <button type="button" data-area="fav" class="area-chip px-2 py-0.5 rounded-full text-[10px] font-bold bg-marine-900 text-amber-300 border border-amber-500/30 shrink-0 transition">★お気に入り</button>
+        <button type="button" data-area="tokyo_miura" class="area-chip px-2 py-0.5 rounded-full text-[10px] font-bold bg-marine-900 text-slate-300 border border-slate-700/80 shrink-0 transition">東京湾・三浦</button>
+        <button type="button" data-area="shonan_seisho" class="area-chip px-2 py-0.5 rounded-full text-[10px] font-bold bg-marine-900 text-slate-300 border border-slate-700/80 shrink-0 transition">湘南・西湘</button>
+        <button type="button" data-area="chiba_ibaraki" class="area-chip px-2 py-0.5 rounded-full text-[10px] font-bold bg-marine-900 text-slate-300 border border-slate-700/80 shrink-0 transition">千葉・茨城</button>
+        <button type="button" data-area="shizuoka_izu_suruga" class="area-chip px-2 py-0.5 rounded-full text-[10px] font-bold bg-marine-900 text-slate-300 border border-slate-700/80 shrink-0 transition">伊豆・駿河湾</button>
+        <button type="button" data-area="shizuoka_enshu" class="area-chip px-2 py-0.5 rounded-full text-[10px] font-bold bg-marine-900 text-slate-300 border border-slate-700/80 shrink-0 transition">遠州・浜名湖</button>
+        <button type="button" data-area="other_nationwide" class="area-chip px-2 py-0.5 rounded-full text-[10px] font-bold bg-marine-900 text-slate-300 border border-slate-700/80 shrink-0 transition">全国主要</button>
+      </div>
+
+      <!-- 2段目：日付切り替え（◀ / 日付ピッカー / ▶ / 今日）＋ 月齢・潮回りバッジ -->
+      <div class="mt-1 pt-1 border-t border-slate-800/80 flex items-center justify-between gap-1">
+        <div class="flex items-center gap-1">
+          <button id="prevDayBtn" type="button" aria-label="前日" class="w-6 h-6 rounded bg-marine-800 hover:bg-marine-700 active:scale-95 text-slate-200 text-[10px] flex items-center justify-center border border-slate-700/70">
+            <i class="fa-solid fa-chevron-left"></i>
           </button>
 
-          <div class="flex items-center gap-1">
-            <button id="todayBtn" type="button" class="px-2.5 py-1.5 rounded-lg bg-sky-500 text-marine-950 text-xs font-extrabold shadow-sm shadow-sky-500/30 transition">
-              今日
-            </button>
-            <button id="tomorrowBtn" type="button" class="px-2.5 py-1.5 rounded-lg bg-marine-800/90 hover:bg-marine-700 text-slate-300 text-xs font-semibold border border-slate-700/70 transition">
-              明日
-            </button>
-          </div>
+          <input type="date" id="datePicker" aria-label="日付選択" class="px-1.5 py-0.5 rounded bg-marine-900 border border-sky-500/30 text-[11px] font-mono font-bold text-sky-200 focus:outline-none">
 
-          <div class="relative">
-            <input type="date" id="datePicker" aria-label="日付選択" class="px-2.5 py-1 rounded-lg bg-marine-900 border border-sky-500/30 text-xs font-mono font-bold text-sky-200 focus:outline-none focus:border-sky-400">
-          </div>
+          <button id="nextDayBtn" type="button" aria-label="翌日" class="w-6 h-6 rounded bg-marine-800 hover:bg-marine-700 active:scale-95 text-slate-200 text-[10px] flex items-center justify-center border border-slate-700/70">
+            <i class="fa-solid fa-chevron-right"></i>
+          </button>
 
-          <button id="nextDayBtn" type="button" class="px-2.5 py-1.5 rounded-lg bg-marine-800/90 hover:bg-marine-700 active:scale-95 text-slate-200 text-xs font-semibold flex items-center gap-1 border border-slate-700/70">
-            翌日 <i class="fa-solid fa-chevron-right text-[10px]"></i>
+          <button id="todayBtn" type="button" class="px-2 py-0.5 rounded bg-sky-500 text-marine-950 text-[10px] font-extrabold shadow-sm active:scale-95 transition">
+            今日
           </button>
         </div>
 
-        <!-- 自動更新トグル & 最終更新時刻 -->
-        <div class="flex items-center justify-between sm:justify-end gap-3 w-full sm:w-auto text-[11px] text-slate-400">
-          <div class="flex items-center gap-1.5">
-            <i class="fa-regular fa-clock text-sky-400"></i>
-            <span>現在: <strong id="currentTimeDisplay" class="font-mono text-slate-200">--:--:--</strong></span>
-            <span class="text-slate-600">|</span>
-            <span>気象更新: <span id="lastWeatherUpdate" class="font-mono text-slate-300">--:--</span></span>
-          </div>
-
-          <label class="inline-flex items-center gap-1.5 cursor-pointer select-none">
-            <input type="checkbox" id="autoUpdateToggle" checked class="sr-only peer">
-            <div class="w-8 h-4 bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-3 after:w-3 after:transition-all relative peer-checked:bg-emerald-500"></div>
-            <span class="text-[11px] font-semibold text-slate-300">自動更新</span>
-          </label>
+        <!-- 潮回り＆月齢バッジ（横1列） -->
+        <div class="flex items-center gap-1.5 shrink-0">
+          <span class="text-[10px] text-slate-400 font-mono">月齢<strong id="moonAgeText" class="text-amber-300 ml-0.5">14.8</strong></span>
+          <span id="tideNameBadge" class="px-2 py-0.5 rounded-md font-black text-[11px] bg-gradient-to-r from-amber-500 to-orange-500 text-marine-950 shadow-sm">
+            大潮
+          </span>
         </div>
       </div>
+    </header>
+
+    <!-- 通知トースト（GPSや通信ステータス表示用・alert代替） -->
+    <div id="statusToast" class="fixed bottom-4 left-1/2 -translate-x-1/2 z-50 hidden px-3.5 py-2 rounded-xl bg-marine-800/95 border border-sky-400/50 text-sky-100 text-xs font-bold shadow-2xl flex items-center gap-2 backdrop-blur-md transition-all max-w-[92vw]">
+      <i id="statusToastIcon" class="fa-solid fa-circle-info text-sky-400"></i>
+      <span id="statusToastText" class="truncate">ステータス通知</span>
     </div>
-  </header>
 
-  <!-- 通知トースト（GPSや通信ステータス表示用・alert代替） -->
-  <div id="statusToast" class="fixed bottom-20 left-1/2 -translate-x-1/2 z-50 hidden px-4 py-2.5 rounded-2xl bg-marine-800/95 border border-sky-400/50 text-sky-100 text-xs font-bold shadow-2xl flex items-center gap-2 backdrop-blur-md transition-all">
-    <i id="statusToastIcon" class="fa-solid fa-circle-info text-sky-400"></i>
-    <span id="statusToastText">ステータス通知</span>
-  </div>
+    <!-- メインコンテンツ（余白を最小化し1画面に凝縮） -->
+    <main class="px-2.5 pt-2 space-y-2 flex-1">
 
-  <!-- メインコンテンツ -->
-  <main class="max-w-7xl mx-auto px-3 sm:px-6 pt-4 space-y-4">
-
-    <!-- 週間クイックカレンダーストリップ（タップで日付切替） -->
-    <section aria-label="週間カレンダー">
-      <div id="weekStrip" class="grid grid-cols-7 gap-1.5 sm:gap-2">
-        <!-- JSで7日分のミニカードを生成 -->
-      </div>
-    </section>
-
-    <!-- 上段サマリーグリッド：リアルタイムステータス（潮位・BI値・潮回り・現在気象） -->
-    <section class="grid grid-cols-1 md:grid-cols-12 gap-3.5">
-      
-      <!-- 1. 現在のBI値（Bite Index / 釣果活性指数）メインカード -->
-      <div class="md:col-span-5 glass-card-highlight rounded-2xl p-4 relative overflow-hidden">
-        <div class="absolute -right-8 -bottom-8 w-36 h-36 rounded-full bg-amber-500/10 blur-2xl pointer-events-none"></div>
-        
-        <div class="flex items-start justify-between gap-2">
-          <div>
-            <span class="inline-flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wider text-amber-300 bg-amber-500/15 px-2.5 py-0.5 rounded-full border border-amber-400/30">
-              <i class="fa-solid fa-fish-fins"></i> リアルタイムBI値 (釣果活性指数)
-            </span>
-            <h2 id="selectedDateLabel" class="mt-1.5 text-sm font-bold text-slate-300">--月--日 (--) の時合い評価</h2>
+      <!-- 4分割コンパクト・サマリーグリッド（横4列の薄型カード） -->
+      <section aria-label="リアルタイムサマリー" class="grid grid-cols-4 gap-1.5">
+        <!-- ① 現在潮位＋流速 -->
+        <div class="glass-card rounded-xl p-2 flex flex-col justify-between">
+          <div class="flex items-center justify-between text-[10px] text-slate-400">
+            <span>現在潮位</span>
+            <i class="fa-solid fa-water text-sky-400"></i>
           </div>
-          <button id="biInfoBtn" type="button" class="text-xs text-sky-300 hover:text-sky-200 underline flex items-center gap-1">
-            <i class="fa-regular fa-circle-question"></i> 算出基準
+          <div class="my-0.5 flex items-baseline gap-0.5">
+            <span id="currentTideHeight" class="text-lg font-black font-mono text-sky-300 leading-none">142</span>
+            <span class="text-[10px] text-slate-400 font-bold">cm</span>
+          </div>
+          <div id="currentTideStateBadge" class="text-[10px] font-bold text-sky-200 truncate">
+            ↗+24cm/h
+          </div>
+        </div>
+
+        <!-- ② 現在BI値＋ランク -->
+        <div id="biSummaryTile" class="glass-card-highlight rounded-xl p-2 flex flex-col justify-between cursor-pointer active:scale-95 transition" title="タップでBI算出基準を表示">
+          <div class="flex items-center justify-between text-[10px] text-amber-300 font-bold">
+            <span>BI活性値</span>
+            <span id="biRankBadge" class="px-1 rounded text-[9px] font-black bg-amber-500/20 text-amber-300 border border-amber-400/40">A</span>
+          </div>
+          <div class="my-0.5 flex items-baseline gap-0.5">
+            <span id="currentBiValue" class="text-lg font-black font-mono text-white leading-none">78</span>
+            <span class="text-[9px] text-slate-400 font-mono">/100</span>
+          </div>
+          <div id="biShortStatus" class="text-[10px] font-bold text-amber-300 truncate">
+            好機・高活性
+          </div>
+        </div>
+
+        <!-- ③ 天気アイコン＋気温・降水確率 -->
+        <div class="glass-card rounded-xl p-2 flex flex-col justify-between">
+          <div class="flex items-center justify-between text-[10px] text-slate-400">
+            <span id="currentWeatherDesc" class="truncate">晴れ</span>
+            <span id="weatherMainIcon" class="text-xs text-amber-400"><i class="fa-solid fa-cloud-sun"></i></span>
+          </div>
+          <div class="my-0.5 flex items-baseline gap-0.5">
+            <span id="currentTempText" class="text-lg font-black font-mono text-white leading-none">18.4</span>
+            <span class="text-[10px] text-slate-400 font-bold">℃</span>
+          </div>
+          <div class="text-[10px] font-mono font-bold text-sky-300">
+            ☔降水 <span id="currentPrecipProb">10%</span>
+          </div>
+        </div>
+
+        <!-- ④ 風向・風速＋気圧 -->
+        <div class="glass-card rounded-xl p-2 flex flex-col justify-between">
+          <div class="flex items-center justify-between text-[10px] text-slate-400">
+            <span class="flex items-center gap-0.5 text-emerald-300 font-bold">
+              <i id="windDirArrow" class="fa-solid fa-location-arrow text-[9px]"></i>
+              <span id="currentWindDirText">北東</span>
+            </span>
+          </div>
+          <div class="my-0.5 flex items-baseline gap-0.5">
+            <span id="currentWindSpeed" class="text-lg font-black font-mono text-emerald-300 leading-none">3.2</span>
+            <span class="text-[10px] text-slate-400 font-bold">m/s</span>
+          </div>
+          <div class="text-[10px] font-mono text-slate-300 truncate">
+            <span id="currentPressureText">1014</span>hPa <span id="pressureTrendBadge" class="text-emerald-400">↘</span>
+          </div>
+        </div>
+      </section>
+
+      <!-- インタラクティブ複合チャート（タイドグラフ × BI値バー：高さ約200px） -->
+      <section class="glass-card rounded-xl p-2">
+        <!-- タッチ連動1〜2行スリムインスペクターバー -->
+        <div class="mb-1.5 px-2 py-1 rounded-lg bg-marine-950/90 border border-sky-500/30 flex flex-wrap items-center justify-between gap-x-2 gap-y-0.5 text-[11px]">
+          <div class="flex items-center gap-1.5">
+            <span id="inspTime" class="px-1.5 py-0.2 rounded bg-sky-500/20 text-sky-300 font-mono font-extrabold text-xs">12:00</span>
+            <span class="font-mono font-bold text-white"><span id="inspTideCm">135</span>cm</span>
+            <span id="inspTideSpeed" class="font-mono text-[10px] text-sky-300">(+18cm/h)</span>
+            <span id="inspTideState" class="text-[10px] text-slate-300 font-semibold hidden xs:inline">上げ潮</span>
+          </div>
+
+          <div class="flex items-center gap-1.5">
+            <span class="font-mono font-extrabold text-amber-400">BI:<span id="inspBiScore">76</span></span>
+            <span id="inspBiRank" class="px-1 py-0.2 rounded text-[9px] font-bold bg-amber-500/20 text-amber-300 border border-amber-500/40">A</span>
+            <label class="inline-flex items-center gap-1 cursor-pointer text-[10px] text-slate-300 bg-marine-800 px-1.5 py-0.5 rounded border border-slate-700 select-none">
+              <input type="checkbox" id="toggleBiOverlay" checked class="accent-amber-400 w-3 h-3">
+              <span>BI棒</span>
+            </label>
+          </div>
+
+          <div class="w-full flex items-center justify-between text-[10px] text-slate-300 pt-0.5 border-t border-slate-800/80">
+            <span><span id="inspWeather">☀️晴れ</span> <strong id="inspTemp" class="font-mono text-white">18.2℃</strong></span>
+            <span class="text-emerald-300 font-semibold">風:<span id="inspWindDir">北東</span> <strong id="inspWindSpeed" class="font-mono">3.1m/s</strong></span>
+            <span class="font-mono"><span id="inspPressure">1014</span>hPa</span>
+          </div>
+        </div>
+
+        <!-- チャート本体（サイズ0エラーが絶対に起きない高精細レスポンシブSVG＋タッチスクラブ対応） -->
+        <div id="chartContainer" class="relative w-full h-[195px] bg-marine-950/90 rounded-lg border border-slate-800/90 overflow-hidden cursor-crosshair">
+          <svg id="tideSvgChart" viewBox="0 0 720 205" preserveAspectRatio="none" aria-label="24時間タイドグラフ＆BIチャート"></svg>
+        </div>
+      </section>
+
+      <!-- 満潮・干潮 ＆ 日出・日没のスリム横並びバー（高さ約42px） -->
+      <section class="glass-card rounded-xl px-2 py-1.5 flex items-center justify-between gap-1.5 overflow-x-auto no-scrollbar">
+        <!-- 満潮・干潮チップ群 -->
+        <div id="highLowCardsContainer" class="flex items-center gap-1.5 shrink-0">
+          <!-- JSで満潮・干潮スリムボタンを生成 -->
+        </div>
+
+        <!-- 日出・日没時刻 -->
+        <div class="flex items-center gap-2 pl-2 border-l border-slate-800 shrink-0 text-[10px] font-mono">
+          <div class="flex items-center gap-1 text-amber-300" title="日の出時刻">
+            <i class="fa-solid fa-sun"></i>
+            <span id="sunriseText" class="font-bold">05:52</span>
+          </div>
+          <div class="flex items-center gap-1 text-orange-300" title="日の入り時刻">
+            <i class="fa-solid fa-mountain-sun"></i>
+            <span id="sunsetText" class="font-bold">17:01</span>
+          </div>
+        </div>
+      </section>
+
+      <!-- 下部エリア：縦長を防ぐ「3タブ切り替えパネル」 -->
+      <section class="glass-card rounded-xl p-2">
+        <!-- タブナビゲーションボタン -->
+        <div class="grid grid-cols-3 gap-1 bg-marine-950/90 p-1 rounded-lg border border-slate-800/90 mb-2">
+          <button type="button" data-tab="prime" class="tab-switch-btn py-1.5 px-2 rounded-md text-xs font-extrabold bg-sky-500 text-marine-950 shadow-sm transition flex items-center justify-center gap-1">
+            <span>🎯 時合いTOP3</span>
+          </button>
+          <button type="button" data-tab="hourly" class="tab-switch-btn py-1.5 px-2 rounded-md text-xs font-bold text-slate-300 hover:text-white transition flex items-center justify-center gap-1">
+            <span>🌤 時間別天気</span>
+          </button>
+          <button type="button" data-tab="detail" class="tab-switch-btn py-1.5 px-2 rounded-md text-xs font-bold text-slate-300 hover:text-white transition flex items-center justify-center gap-1">
+            <span>📊 BI内訳・詳細</span>
           </button>
         </div>
 
-        <div class="mt-3 flex items-center gap-4">
-          <!-- BI円形ゲージ -->
-          <div class="relative w-24 h-24 shrink-0 flex items-center justify-center">
-            <svg class="w-full h-full -rotate-90" viewBox="0 0 100 100">
-              <circle cx="50" cy="50" r="42" stroke="rgba(255,255,255,0.08)" stroke-width="10" fill="none"></circle>
-              <circle id="biGaugeCircle" cx="50" cy="50" r="42" stroke="#f59e0b" stroke-width="10" stroke-linecap="round" fill="none" stroke-dasharray="264" stroke-dashoffset="60" class="transition-all duration-700"></circle>
-            </svg>
-            <div class="absolute inset-0 flex flex-col items-center justify-center">
-              <span class="text-[10px] font-bold text-slate-400 leading-none">RANK <strong id="biRankText" class="text-amber-400 text-xs">A</strong></span>
-              <span id="currentBiValue" class="text-3xl font-black font-mono tracking-tight text-white">78</span>
-              <span class="text-[9px] text-slate-400 font-mono">/ 100 pt</span>
+        <!-- タブ1：【🎯 時合いTOP3】 -->
+        <div id="tabPanelPrime" class="space-y-1.5">
+          <div id="primeTimesList" class="space-y-1.5">
+            <!-- JSでコンパクトな横長カード3枚を生成 -->
+          </div>
+        </div>
+
+        <!-- タブ2：【🌤 時間別天気・風・BI】（3時間ごと・1画面に収まるコンパクトテーブル） -->
+        <div id="tabPanelHourly" class="hidden">
+          <div class="flex items-center justify-between mb-1.5 px-1">
+            <span class="text-[10px] text-slate-400">行をタップするとグラフの該当時刻を表示します</span>
+            <div class="inline-flex rounded-md bg-marine-900 p-0.5 border border-slate-800">
+              <button id="step3hBtn" type="button" class="px-2 py-0.5 rounded text-[10px] font-bold bg-sky-500 text-marine-950">3時間毎</button>
+              <button id="step1hBtn" type="button" class="px-2 py-0.5 rounded text-[10px] font-bold text-slate-300">1時間毎</button>
             </div>
           </div>
+          <div class="max-h-[250px] overflow-y-auto custom-scrollbar rounded-lg border border-slate-800/90">
+            <table class="w-full text-left border-collapse text-[11px]">
+              <thead class="bg-marine-950 text-slate-400 text-[10px] sticky top-0 z-10 border-b border-slate-800">
+                <tr>
+                  <th class="py-1.5 pl-2 font-semibold">時刻</th>
+                  <th class="py-1.5 font-semibold">天気/気温</th>
+                  <th class="py-1.5 font-semibold">風向/風速</th>
+                  <th class="py-1.5 font-semibold">気圧</th>
+                  <th class="py-1.5 font-semibold">潮位(流速)</th>
+                  <th class="py-1.5 pr-2 text-right font-semibold">BI値</th>
+                </tr>
+              </thead>
+              <tbody id="hourlyTableBody" class="divide-y divide-slate-800/60 bg-marine-900/50">
+                <!-- JSでテーブル行を生成 -->
+              </tbody>
+            </table>
+          </div>
+        </div>
 
-          <!-- BI内訳ファクターメーター -->
-          <div class="flex-1 space-y-2">
+        <!-- タブ3：【📊 BI内訳・詳細】 -->
+        <div id="tabPanelDetail" class="hidden space-y-2.5 p-1">
+          <div class="flex items-center justify-between border-b border-slate-800 pb-1.5">
+            <div class="text-xs font-bold text-slate-200">
+              <i class="fa-solid fa-sliders text-amber-400 mr-1"></i>
+              <span id="detailTargetTimeLabel">現在時刻</span> のBIスコア内訳
+            </div>
+            <button id="biInfoBtn" type="button" class="text-[11px] text-sky-300 underline flex items-center gap-1">
+              <i class="fa-regular fa-circle-question"></i> 算出基準
+            </button>
+          </div>
+
+          <!-- 3つのBIファクタープログレスバー -->
+          <div class="space-y-2">
             <div>
               <div class="flex justify-between text-[11px] mb-0.5">
-                <span class="text-slate-300"><i class="fa-solid fa-water text-sky-400 mr-1"></i>潮の動き・流速</span>
-                <span id="biFactorTide" class="font-mono font-bold text-sky-300">--/45</span>
+                <span class="text-slate-300 font-semibold"><i class="fa-solid fa-water text-sky-400 mr-1"></i>① 潮の動き・流速（上げ/下げ3〜7分）</span>
+                <span id="biFactorTide" class="font-mono font-bold text-sky-300">-- / 45点</span>
               </div>
-              <div class="w-full h-1.5 bg-slate-800 rounded-full overflow-hidden">
+              <div class="w-full h-2 bg-slate-800 rounded-full overflow-hidden">
                 <div id="biBarTide" class="h-full bg-gradient-to-r from-sky-500 to-cyan-300 rounded-full transition-all duration-500" style="width: 70%"></div>
               </div>
             </div>
 
             <div>
               <div class="flex justify-between text-[11px] mb-0.5">
-                <span class="text-slate-300"><i class="fa-solid fa-sun text-amber-400 mr-1"></i>マズメ・月齢・潮回り</span>
-                <span id="biFactorAstro" class="font-mono font-bold text-amber-300">--/35</span>
+                <span class="text-slate-300 font-semibold"><i class="fa-solid fa-sun text-amber-400 mr-1"></i>② 朝夕マズメ・月齢・潮回り</span>
+                <span id="biFactorAstro" class="font-mono font-bold text-amber-300">-- / 35点</span>
               </div>
-              <div class="w-full h-1.5 bg-slate-800 rounded-full overflow-hidden">
+              <div class="w-full h-2 bg-slate-800 rounded-full overflow-hidden">
                 <div id="biBarAstro" class="h-full bg-gradient-to-r from-amber-500 to-yellow-300 rounded-full transition-all duration-500" style="width: 65%"></div>
               </div>
             </div>
 
             <div>
               <div class="flex justify-between text-[11px] mb-0.5">
-                <span class="text-slate-300"><i class="fa-solid fa-gauge-high text-emerald-400 mr-1"></i>気圧傾向・風況</span>
-                <span id="biFactorWeather" class="font-mono font-bold text-emerald-300">--/20</span>
+                <span class="text-slate-300 font-semibold"><i class="fa-solid fa-gauge-high text-emerald-400 mr-1"></i>③ 気圧変化・風況コンディション</span>
+                <span id="biFactorWeather" class="font-mono font-bold text-emerald-300">-- / 20点</span>
               </div>
-              <div class="w-full h-1.5 bg-slate-800 rounded-full overflow-hidden">
+              <div class="w-full h-2 bg-slate-800 rounded-full overflow-hidden">
                 <div id="biBarWeather" class="h-full bg-gradient-to-r from-emerald-500 to-teal-300 rounded-full transition-all duration-500" style="width: 80%"></div>
               </div>
             </div>
-
-            <p id="biSummaryComment" class="text-[11px] text-slate-200 bg-marine-950/60 px-2.5 py-1.5 rounded-lg border border-slate-700/60 leading-snug">
-              潮がしっかり効く時間帯。ベイトの回遊に期待！
-            </p>
           </div>
-        </div>
-      </div>
 
-      <!-- 2. 現在潮位・流速 ＆ 潮回り・月齢カード -->
-      <div class="md:col-span-4 glass-card rounded-2xl p-4 flex flex-col justify-between">
-        <div class="flex items-center justify-between border-b border-slate-800 pb-2.5">
-          <div>
-            <span class="text-[11px] text-slate-400 font-semibold block">現在の潮位・潮流状態</span>
-            <div class="flex items-baseline gap-2 mt-0.5">
-              <span id="currentTideHeight" class="text-2xl sm:text-3xl font-black font-mono text-sky-300">142</span>
-              <span class="text-xs font-bold text-slate-400">cm</span>
-              <span id="currentTideStateBadge" class="px-2 py-0.5 rounded-md text-xs font-bold bg-sky-500/20 text-sky-300 border border-sky-500/30">
-                ↗ 上げ七分 (+24cm/h)
-              </span>
+          <!-- 月相＆天体データ＋ひとこと解説 -->
+          <div class="bg-marine-900/80 rounded-xl p-2.5 border border-slate-800 flex items-center gap-3">
+            <div class="flex flex-col items-center shrink-0">
+              <div id="moonSvgContainer" class="w-10 h-10 flex items-center justify-center"></div>
+              <span id="moonIllumText" class="text-[9px] text-slate-400 font-mono mt-0.5">輝面 99%</span>
             </div>
-          </div>
-
-          <!-- 潮名バッジ -->
-          <div class="text-right">
-            <span class="text-[10px] text-slate-400 block">本日の潮回り</span>
-            <span id="tideNameBadge" class="inline-block mt-0.5 px-3 py-1 rounded-xl font-black text-base bg-gradient-to-r from-amber-500 to-orange-500 text-marine-950 shadow-md shadow-amber-500/20">
-              大潮
-            </span>
-          </div>
-        </div>
-
-        <!-- 月齢グラフィック ＆ 日出/日没/マズメ -->
-        <div class="mt-3 grid grid-cols-12 gap-2 items-center">
-          <!-- ムーンフェイズSVG -->
-          <div class="col-span-4 flex flex-col items-center justify-center bg-marine-900/70 rounded-xl p-2 border border-slate-800">
-            <div id="moonSvgContainer" class="w-11 h-11 flex items-center justify-center">
-              <!-- JSでリアルな月相SVGを描画 -->
-            </div>
-            <span class="text-[10px] text-slate-400 mt-1">月齢 <strong id="moonAgeText" class="font-mono text-amber-300">14.8</strong></span>
-            <span id="moonIllumText" class="text-[9px] text-slate-400 font-mono">輝面 99%</span>
-          </div>
-
-          <!-- 太陽・月・マズメ時刻一覧 -->
-          <div class="col-span-8 grid grid-cols-2 gap-1.5 text-xs">
-            <div class="bg-marine-900/60 px-2.5 py-1.5 rounded-xl border border-slate-800/80">
-              <span class="text-[10px] text-amber-300/90 flex items-center gap-1"><i class="fa-solid fa-sun"></i> 日出 / 日没</span>
-              <div class="font-mono font-bold text-slate-100 mt-0.5 text-[11px]">
-                <span id="sunriseText">05:52</span> / <span id="sunsetText">17:01</span>
+            <div class="flex-1 text-[11px] space-y-1">
+              <div class="flex flex-wrap justify-between gap-1 font-mono text-[10px] text-slate-300">
+                <span>🌅朝マズメ <strong id="morningMazumeText" class="text-amber-300">05:05-06:35</strong></span>
+                <span>🌇夕マズメ <strong id="eveningMazumeText" class="text-amber-300">16:15-17:45</strong></span>
               </div>
-            </div>
-            <div class="bg-marine-900/60 px-2.5 py-1.5 rounded-xl border border-slate-800/80">
-              <span class="text-[10px] text-indigo-300 flex items-center gap-1"><i class="fa-solid fa-moon"></i> 月出 / 月没</span>
-              <div class="font-mono font-bold text-slate-100 mt-0.5 text-[11px]">
-                <span id="moonriseText">16:40</span> / <span id="moonsetText">05:15</span>
-              </div>
-            </div>
-            <div class="col-span-2 bg-gradient-to-r from-amber-500/15 via-orange-500/10 to-purple-500/15 px-2.5 py-1.5 rounded-xl border border-amber-500/25 flex items-center justify-between">
-              <span class="text-[10px] font-bold text-amber-300"><i class="fa-solid fa-bolt mr-1"></i>朝/夕マズメ</span>
-              <span class="font-mono font-bold text-[11px] text-amber-100">
-                <span id="morningMazumeText">05:05-06:35</span> / <span id="eveningMazumeText">16:15-17:45</span>
-              </span>
+              <p id="biSummaryComment" class="text-slate-200 leading-snug text-[11px]">
+                潮がしっかり効く時間帯。ベイトの回遊に期待！
+              </p>
             </div>
           </div>
-        </div>
-      </div>
 
-      <!-- 3. リアルタイム気象・風向・気圧カード（Open-Meteo連動） -->
-      <div class="md:col-span-3 glass-card rounded-2xl p-4 flex flex-col justify-between">
-        <div class="flex items-center justify-between">
-          <div>
-            <span id="portLocationSub" class="text-[10px] font-mono text-sky-400 block">35.63°N, 139.76°E</span>
-            <h3 id="portNameTitle" class="text-sm font-extrabold text-white">東京・芝浦</h3>
-          </div>
-          <div id="weatherMainIcon" class="text-2xl text-amber-400">
-            <i class="fa-solid fa-cloud-sun"></i>
+          <!-- ステータスフッター -->
+          <div class="flex items-center justify-between text-[10px] text-slate-400 pt-1">
+            <span>現在時刻: <strong id="currentTimeDisplay" class="font-mono text-slate-200">--:--:--</strong> (更新 <span id="lastWeatherUpdate" class="font-mono">--:--</span>)</span>
+            <span id="apiStatusBadge" class="text-emerald-400 font-semibold">● 診断:正常(エラー0)</span>
           </div>
         </div>
+      </section>
 
-        <div class="my-2 grid grid-cols-2 gap-2">
-          <!-- 気温・天気 -->
-          <div class="bg-marine-900/70 rounded-xl p-2 border border-slate-800">
-            <span class="text-[10px] text-slate-400 block">気温 / 天気</span>
-            <div class="flex items-baseline gap-1.5 mt-0.5">
-              <span id="currentTempText" class="text-xl font-black font-mono text-white">18.4</span>
-              <span class="text-xs text-slate-400">°C</span>
-            </div>
-            <span id="currentWeatherDesc" class="text-[10px] text-sky-300 font-semibold block truncate">晴れ時々曇り</span>
-          </div>
-
-          <!-- 風向・風速 -->
-          <div class="bg-marine-900/70 rounded-xl p-2 border border-slate-800">
-            <span class="text-[10px] text-slate-400 block">風向 / 風速</span>
-            <div class="flex items-baseline gap-1 mt-0.5">
-              <span id="currentWindSpeed" class="text-xl font-black font-mono text-emerald-300">3.2</span>
-              <span class="text-xs text-slate-400">m/s</span>
-            </div>
-            <div class="flex items-center gap-1 text-[10px] text-slate-200 font-bold">
-              <i id="windDirArrow" class="fa-solid fa-location-arrow text-emerald-400"></i>
-              <span id="currentWindDirText">北北東</span>
-            </div>
-          </div>
-        </div>
-
-        <!-- 気圧＆降水確率 -->
-        <div class="bg-marine-900/70 rounded-xl px-2.5 py-1.5 border border-slate-800 flex items-center justify-between text-xs">
-          <div>
-            <span class="text-[10px] text-slate-400 block">海面気圧</span>
-            <span class="font-mono font-bold text-slate-100"><span id="currentPressureText">1014</span> hPa <span id="pressureTrendBadge" class="text-[10px] text-emerald-400">↘微減</span></span>
-          </div>
-          <div class="text-right">
-            <span class="text-[10px] text-slate-400 block">降水確率</span>
-            <span id="currentPrecipProb" class="font-mono font-bold text-sky-300">10%</span>
-          </div>
-        </div>
-      </div>
-
-    </section>
-
-    <!-- メイン複合グラフセクション：タイドグラフ（潮位曲線）× BI値（活性指数） -->
-    <section class="glass-card rounded-2xl p-3 sm:p-5">
-      <div class="flex flex-wrap items-center justify-between gap-2 mb-3">
-        <div>
-          <div class="flex items-center gap-2">
-            <h2 class="text-base sm:text-lg font-extrabold text-white flex items-center gap-2">
-              <i class="fa-solid fa-chart-area text-sky-400"></i>
-              タイドグラフ ＆ BI値（時合い指数）複合チャート
-            </h2>
-          </div>
-          <p class="text-[11px] text-slate-400">グラフ上をタップ・左右にスワイプすると、その時刻の潮位・流速・BI値・気象を詳細表示します</p>
-        </div>
-
-        <!-- 凡例＆表示切替 -->
-        <div class="flex flex-wrap items-center gap-3 text-[11px]">
-          <span class="inline-flex items-center gap-1.5 text-sky-300 font-semibold">
-            <span class="w-3 h-1 rounded-full bg-sky-400 inline-block"></span> 潮位 (cm)
-          </span>
-          <span class="inline-flex items-center gap-1.5 text-amber-300 font-semibold">
-            <span class="w-2.5 h-2.5 rounded-sm bg-amber-400/70 inline-block"></span> BI値 (0-100)
-          </span>
-          <span class="inline-flex items-center gap-1.5 text-orange-300 font-semibold">
-            <span class="w-2.5 h-2.5 rounded-sm bg-orange-500/25 border border-orange-400/50 inline-block"></span> 朝/夕マズメ帯
-          </span>
-          <label class="inline-flex items-center gap-1 cursor-pointer bg-marine-900 px-2.5 py-1 rounded-lg border border-slate-700">
-            <input type="checkbox" id="toggleBiOverlay" checked class="accent-amber-400 rounded">
-            <span class="text-slate-200 font-bold">BIバー重ね表示</span>
-          </label>
-        </div>
-      </div>
-
-      <!-- インタラクティブ・タイムインスペクター（タップ/ホバー時の詳細バー） -->
-      <div id="chartInspector" class="mb-3 px-3 py-2 rounded-xl bg-marine-900/95 border border-sky-500/30 grid grid-cols-2 sm:grid-cols-6 gap-2 items-center text-xs">
-        <div class="flex items-center gap-2">
-          <span class="px-2 py-0.5 rounded bg-sky-500/20 text-sky-300 font-mono font-bold text-sm" id="inspTime">12:00</span>
-          <span id="inspTideState" class="text-[11px] font-bold text-slate-300">上げ潮</span>
-        </div>
-        <div>
-          <span class="text-slate-400 text-[10px] block">予測潮位 / 流速</span>
-          <span class="font-mono font-bold text-white"><span id="inspTideCm">135</span>cm <span id="inspTideSpeed" class="text-[11px] text-sky-300">(+18cm/h)</span></span>
-        </div>
-        <div>
-          <span class="text-slate-400 text-[10px] block">BI値 (活性ランク)</span>
-          <span class="font-mono font-bold text-amber-400"><span id="inspBiScore">76</span>pt <span id="inspBiRank" class="px-1.5 py-0.2 rounded text-[10px] bg-amber-500/20 text-amber-300">RANK A</span></span>
-        </div>
-        <div>
-          <span class="text-slate-400 text-[10px] block">天気 / 気温</span>
-          <span class="font-bold text-slate-200"><span id="inspWeather">☀️ 晴れ</span> <span id="inspTemp" class="font-mono">18.2°C</span></span>
-        </div>
-        <div>
-          <span class="text-slate-400 text-[10px] block">風向 / 風速</span>
-          <span class="font-bold text-emerald-300"><span id="inspWindDir">北東</span> <span id="inspWindSpeed" class="font-mono">3.1m/s</span></span>
-        </div>
-        <div>
-          <span class="text-slate-400 text-[10px] block">海面気圧</span>
-          <span class="font-mono font-bold text-slate-200"><span id="inspPressure">1014</span> hPa</span>
-        </div>
-      </div>
-
-      <!-- Canvas コンテナ -->
-      <div class="relative w-full h-[290px] sm:h-[360px] bg-marine-950/80 rounded-xl border border-slate-800/90 overflow-hidden">
-        <canvas id="tideCanvas" class="w-full h-full block"></canvas>
-      </div>
-
-      <!-- 満潮・干潮一覧カード（グラフ直下） -->
-      <div class="mt-3.5 grid grid-cols-2 sm:grid-cols-4 gap-2.5" id="highLowCardsContainer">
-        <!-- JSで満潮・干潮カードを生成 -->
-      </div>
-    </section>
-
-    <!-- 中段：本日の「時合い（狙い目タイム）」ベスト3 ＆ 満干潮・潮位差詳細 -->
-    <section class="grid grid-cols-1 lg:grid-cols-12 gap-4">
-      
-      <!-- 本日の時合い（プライムタイム）ベスト3 -->
-      <div class="lg:col-span-7 glass-card rounded-2xl p-4">
-        <div class="flex items-center justify-between mb-3">
-          <div>
-            <h3 class="text-base font-extrabold text-white flex items-center gap-2">
-              <i class="fa-solid fa-trophy text-amber-400"></i>
-              本日の「時合い（狙い目タイム）」ベスト3
-            </h3>
-            <p class="text-[11px] text-slate-400">潮の流速ピーク（上げ三分〜七分・下げ三分〜七分）× マズメ × 気圧変化から自動抽出</p>
-          </div>
-          <span class="text-[11px] font-mono text-amber-300 bg-amber-500/10 px-2.5 py-1 rounded-lg border border-amber-500/20">
-            Bite Index 解析
-          </span>
-        </div>
-
-        <div id="primeTimesList" class="space-y-2.5">
-          <!-- JSでベスト3時合いカードを生成 -->
-        </div>
-      </div>
-
-      <!-- 釣行コンディションアドバイス＆潮流フェーズ解説 -->
-      <div class="lg:col-span-5 glass-card rounded-2xl p-4 flex flex-col justify-between">
-        <div>
-          <h3 class="text-base font-extrabold text-white flex items-center gap-2 mb-3">
-            <i class="fa-solid fa-compass text-emerald-400"></i>
-            フィールド気象・潮流タクティクス分析
-          </h3>
-
-          <div id="tacticsCards" class="space-y-2.5 text-xs">
-            <!-- JSで風速評価・気圧評価・最大潮位差などを生成 -->
-          </div>
-        </div>
-
-        <div class="mt-4 pt-3 border-t border-slate-800/80 flex items-center justify-between text-[11px] text-slate-400">
-          <span><i class="fa-solid fa-satellite-dish text-sky-400 mr-1"></i>気象データ提供: Open-Meteo Forecast API</span>
-          <span id="apiStatusBadge" class="text-emerald-400 font-semibold">● オンライン取得済</span>
-        </div>
-      </div>
-
-    </section>
-
-    <!-- 下段：時間別（1時間 / 3時間切替）天気・風向・風速・気圧・BI値・潮位タイムライン -->
-    <section class="glass-card rounded-2xl p-4">
-      <div class="flex flex-wrap items-center justify-between gap-2 mb-3">
-        <div>
-          <h3 class="text-base font-extrabold text-white flex items-center gap-2">
-            <i class="fa-solid fa-clock-rotate-left text-sky-400"></i>
-            時間別 潮位・BI値・風向風速・気圧タイムライン
-          </h3>
-          <p class="text-[11px] text-slate-400">横スクロールで24時間の推移を確認できます（行をタップするとグラフの該当時刻をフォーカス）</p>
-        </div>
-
-        <div class="inline-flex rounded-xl bg-marine-900 p-1 border border-slate-800">
-          <button id="step3hBtn" type="button" class="px-3 py-1 rounded-lg text-xs font-bold bg-sky-500 text-marine-950 transition">
-            3時間ごと
-          </button>
-          <button id="step1hBtn" type="button" class="px-3 py-1 rounded-lg text-xs font-bold text-slate-300 hover:text-white transition">
-            1時間ごと
-          </button>
-        </div>
-      </div>
-
-      <!-- 横スクロールタイムラインカード群 -->
-      <div id="hourlyTimelineContainer" class="flex gap-2 overflow-x-auto custom-scrollbar pb-2">
-        <!-- JSで時間別カードを生成 -->
-      </div>
-    </section>
-
-  </main>
+    </main>
+  </div>
 
   <!-- BI値（釣果活性指数）算出基準モーダル -->
   <div id="biModal" class="fixed inset-0 z-50 hidden bg-black/75 backdrop-blur-sm flex items-center justify-center p-4">
@@ -598,52 +504,110 @@
     </div>
   </div>
 
-  <!-- モバイル下部クイックアクションバー -->
-  <nav class="fixed bottom-0 inset-x-0 z-40 lg:hidden glass-card border-t border-sky-500/20 px-3 py-2 flex items-center justify-around text-[11px] font-bold">
-    <button type="button" onclick="window.scrollTo({top: 0, behavior: 'smooth'})" class="flex flex-col items-center gap-0.5 text-sky-300 active:scale-95">
-      <i class="fa-solid fa-gauge-high text-sm"></i>
-      <span>現在BI・潮位</span>
-    </button>
-    <button type="button" onclick="document.getElementById('tideCanvas').scrollIntoView({behavior: 'smooth', block: 'center'})" class="flex flex-col items-center gap-0.5 text-slate-300 hover:text-sky-300 active:scale-95">
-      <i class="fa-solid fa-chart-line text-sm"></i>
-      <span>タイドグラフ</span>
-    </button>
-    <button type="button" onclick="document.getElementById('primeTimesList').scrollIntoView({behavior: 'smooth', block: 'center'})" class="flex flex-col items-center gap-0.5 text-amber-300 active:scale-95">
-      <i class="fa-solid fa-trophy text-sm"></i>
-      <span>時合いベスト3</span>
-    </button>
-    <button type="button" onclick="document.getElementById('hourlyTimelineContainer').scrollIntoView({behavior: 'smooth', block: 'center'})" class="flex flex-col items-center gap-0.5 text-slate-300 hover:text-sky-300 active:scale-95">
-      <i class="fa-solid fa-cloud-sun-rain text-sm"></i>
-      <span>時間別天気</span>
-    </button>
-  </nav>
-
   <script>
     /*************************************************************************
-     * 1. 日本全国の主要港・釣り場プリセットデータ（潮汐調和定数 M2, S2, K1, O1 & Z0）
+     * 1. 関東・静岡・全国48港の潮汐調和定数データ定義 (PORTS)
+     *    M2(主太陰半日周潮), S2(主太陽半日周潮), K1(日月合成日周潮), O1(主太陰日周潮), Z0(平均水面cm)
      *************************************************************************/
+    const AREA_LABELS = {
+      tokyo_miura: '東京湾・横浜・三浦半島',
+      shonan_seisho: '湘南・西湘・小田原',
+      chiba_ibaraki: '千葉（内房・外房・銚子）・茨城',
+      shizuoka_izu_suruga: '静岡（伊豆半島・駿河湾）',
+      shizuoka_enshu: '静岡（遠州灘・浜名湖）',
+      other_nationwide: '全国主要エリア'
+    };
+
     const PORTS = [
-      { id: 'tokyo',     name: '東京・芝浦 (東京湾奥)',   lat: 35.632, lon: 139.758, z0: 115, m2Amp: 56, m2Phase: 148, s2Amp: 26, s2Phase: 179, k1Amp: 25, k1Phase: 182, o1Amp: 19, o1Phase: 162 },
-      { id: 'yokohama',  name: '横浜・本牧 (東京湾央)',   lat: 35.444, lon: 139.667, z0: 110, m2Amp: 53, m2Phase: 145, s2Amp: 25, s2Phase: 176, k1Amp: 25, k1Phase: 180, o1Amp: 19, o1Phase: 160 },
-      { id: 'yokosuka',  name: '横須賀・久里浜',         lat: 35.283, lon: 139.670, z0: 100, m2Amp: 46, m2Phase: 142, s2Amp: 21, s2Phase: 172, k1Amp: 24, k1Phase: 178, o1Amp: 18, o1Phase: 158 },
-      { id: 'kisarazu',  name: '千葉・木更津',           lat: 35.376, lon: 139.900, z0: 112, m2Amp: 55, m2Phase: 147, s2Amp: 26, s2Phase: 178, k1Amp: 25, k1Phase: 181, o1Amp: 19, o1Phase: 161 },
-      { id: 'enoshima',  name: '湘南・江ノ島 (相模湾)',   lat: 35.300, lon: 139.483, z0: 92,  m2Amp: 41, m2Phase: 140, s2Amp: 19, s2Phase: 169, k1Amp: 23, k1Phase: 176, o1Amp: 18, o1Phase: 156 },
-      { id: 'numazu',    name: '静岡・沼津 (駿河湾)',     lat: 35.083, lon: 138.855, z0: 95,  m2Amp: 43, m2Phase: 144, s2Amp: 20, s2Phase: 171, k1Amp: 23, k1Phase: 177, o1Amp: 17, o1Phase: 157 },
-      { id: 'nagoya',    name: '名古屋港 (伊勢湾奥)',     lat: 35.085, lon: 136.882, z0: 135, m2Amp: 74, m2Phase: 172, s2Amp: 34, s2Phase: 202, k1Amp: 26, k1Phase: 190, o1Amp: 20, o1Phase: 170 },
-      { id: 'osaka',     name: '大阪・南港 (大阪湾)',     lat: 34.638, lon: 135.415, z0: 98,  m2Amp: 42, m2Phase: 205, s2Amp: 19, s2Phase: 230, k1Amp: 26, k1Phase: 202, o1Amp: 20, o1Phase: 182 },
-      { id: 'akashi',    name: '明石・神戸 (明石海峡)',   lat: 34.642, lon: 134.996, z0: 88,  m2Amp: 36, m2Phase: 225, s2Amp: 16, s2Phase: 248, k1Amp: 24, k1Phase: 208, o1Amp: 18, o1Phase: 188 },
-      { id: 'hiroshima', name: '広島港 (瀬戸内海)',       lat: 34.352, lon: 132.463, z0: 195, m2Amp: 112, m2Phase: 272, s2Amp: 49, s2Phase: 302, k1Amp: 31, k1Phase: 222, o1Amp: 23, o1Phase: 202 },
-      { id: 'hakata',    name: '福岡・博多湾',           lat: 33.606, lon: 130.398, z0: 125, m2Amp: 66, m2Phase: 282, s2Amp: 30, s2Phase: 310, k1Amp: 22, k1Phase: 215, o1Amp: 17, o1Phase: 195 },
-      { id: 'nagasaki',  name: '長崎港 (東シナ海側)',     lat: 32.744, lon: 129.868, z0: 165, m2Amp: 88, m2Phase: 236, s2Amp: 39, s2Phase: 263, k1Amp: 26, k1Phase: 198, o1Amp: 20, o1Phase: 178 },
-      { id: 'sendai',    name: '宮城・仙台新港',         lat: 38.268, lon: 141.012, z0: 85,  m2Amp: 37, m2Phase: 116, s2Amp: 17, s2Phase: 148, k1Amp: 24, k1Phase: 165, o1Amp: 19, o1Phase: 148 },
-      { id: 'naha',      name: '沖縄・那覇港',           lat: 26.212, lon: 127.668, z0: 128, m2Amp: 65, m2Phase: 198, s2Amp: 28, s2Phase: 224, k1Amp: 22, k1Phase: 192, o1Amp: 17, o1Phase: 172 }
+      // ■ 東京湾・横浜・三浦半島（9港）
+      { id: 'tokyo',     area: 'tokyo_miura', name: '東京・芝浦（晴海・豊洲・若洲）',     lat: 35.627, lon: 139.758, z0: 112, m2Amp: 55, m2Phase: 158, s2Amp: 26, s2Phase: 188, k1Amp: 25, k1Phase: 185, o1Amp: 19, o1Phase: 165 },
+      { id: 'haneda',    area: 'tokyo_miura', name: '羽田・多摩川河口・川崎（東扇島）',   lat: 35.534, lon: 139.789, z0: 110, m2Amp: 54, m2Phase: 157, s2Amp: 25, s2Phase: 187, k1Amp: 25, k1Phase: 184, o1Amp: 19, o1Phase: 164 },
+      { id: 'yokohama',  area: 'tokyo_miura', name: '横浜・本牧（大黒・みなとみらい）',   lat: 35.454, lon: 139.656, z0: 108, m2Amp: 52, m2Phase: 155, s2Amp: 25, s2Phase: 185, k1Amp: 24, k1Phase: 183, o1Amp: 19, o1Phase: 163 },
+      { id: 'kanazawa',  area: 'tokyo_miura', name: '金沢八景・福浦・八景島（横浜市）',   lat: 35.335, lon: 139.642, z0: 102, m2Amp: 49, m2Phase: 154, s2Amp: 23, s2Phase: 184, k1Amp: 24, k1Phase: 182, o1Amp: 18, o1Phase: 162 },
+      { id: 'yokosuka',  area: 'tokyo_miura', name: '横須賀・うみかぜ公園・走水',         lat: 35.288, lon: 139.671, z0: 98,  m2Amp: 47, m2Phase: 152, s2Amp: 22, s2Phase: 182, k1Amp: 23, k1Phase: 181, o1Amp: 18, o1Phase: 161 },
+      { id: 'kurihama',  area: 'tokyo_miura', name: '観音崎・久里浜（東京湾口）',         lat: 35.225, lon: 139.718, z0: 94,  m2Amp: 44, m2Phase: 150, s2Amp: 21, s2Phase: 180, k1Amp: 23, k1Phase: 180, o1Amp: 18, o1Phase: 160 },
+      { id: 'kenzaki',   area: 'tokyo_miura', name: '剣崎・松輪・金田湾（三浦南東）',     lat: 35.142, lon: 139.676, z0: 90,  m2Amp: 41, m2Phase: 149, s2Amp: 19, s2Phase: 179, k1Amp: 22, k1Phase: 179, o1Amp: 17, o1Phase: 159 },
+      { id: 'misaki',    area: 'tokyo_miura', name: '三崎港・城ヶ島（三浦半島先端）',     lat: 35.138, lon: 139.618, z0: 88,  m2Amp: 40, m2Phase: 148, s2Amp: 19, s2Phase: 178, k1Amp: 22, k1Phase: 178, o1Amp: 17, o1Phase: 158 },
+      { id: 'hayama',    area: 'tokyo_miura', name: '葉山・逗子・佐島（相模湾東）',       lat: 35.271, lon: 139.571, z0: 88,  m2Amp: 40, m2Phase: 149, s2Amp: 19, s2Phase: 179, k1Amp: 22, k1Phase: 179, o1Amp: 17, o1Phase: 159 },
+
+      // ■ 湘南・西湘・小田原（5港）
+      { id: 'enoshima',  area: 'shonan_seisho', name: '湘南・江ノ島・片瀬漁港（藤沢）',   lat: 35.300, lon: 139.481, z0: 89,  m2Amp: 41, m2Phase: 150, s2Amp: 19, s2Phase: 180, k1Amp: 22, k1Phase: 179, o1Amp: 17, o1Phase: 160 },
+      { id: 'chigasaki', area: 'shonan_seisho', name: '茅ヶ崎・平塚（相模川河口・須賀港）', lat: 35.316, lon: 139.369, z0: 88,  m2Amp: 41, m2Phase: 151, s2Amp: 19, s2Phase: 181, k1Amp: 22, k1Phase: 180, o1Amp: 17, o1Phase: 160 },
+      { id: 'oiso',      area: 'shonan_seisho', name: '大磯港・二宮・国府津サーフ',       lat: 35.302, lon: 139.318, z0: 88,  m2Amp: 41, m2Phase: 151, s2Amp: 19, s2Phase: 181, k1Amp: 22, k1Phase: 180, o1Amp: 17, o1Phase: 160 },
+      { id: 'odawara',   area: 'shonan_seisho', name: '小田原（早川港・米神・石橋）',     lat: 35.238, lon: 139.152, z0: 87,  m2Amp: 41, m2Phase: 152, s2Amp: 19, s2Phase: 182, k1Amp: 22, k1Phase: 180, o1Amp: 17, o1Phase: 161 },
+      { id: 'manazuru',  area: 'shonan_seisho', name: '真鶴港・福浦・湯河原',             lat: 35.149, lon: 139.146, z0: 87,  m2Amp: 41, m2Phase: 153, s2Amp: 19, s2Phase: 183, k1Amp: 22, k1Phase: 181, o1Amp: 17, o1Phase: 161 },
+
+      // ■ 千葉（内房・外房・銚子）・茨城（12港）
+      { id: 'urayasu',   area: 'chiba_ibaraki', name: '浦安・船橋・市川（三番瀬・千葉港）', lat: 35.642, lon: 139.928, z0: 112, m2Amp: 55, m2Phase: 158, s2Amp: 26, s2Phase: 188, k1Amp: 25, k1Phase: 185, o1Amp: 19, o1Phase: 165 },
+      { id: 'kisarazu',  area: 'chiba_ibaraki', name: '木更津・袖ヶ浦（盤洲干潟・沖堤）',   lat: 35.376, lon: 139.916, z0: 106, m2Amp: 51, m2Phase: 156, s2Amp: 24, s2Phase: 186, k1Amp: 24, k1Phase: 184, o1Amp: 18, o1Phase: 164 },
+      { id: 'futtsu',    area: 'chiba_ibaraki', name: '富津岬・竹岡・金谷（内房）',         lat: 35.311, lon: 139.803, z0: 98,  m2Amp: 46, m2Phase: 152, s2Amp: 22, s2Phase: 182, k1Amp: 23, k1Phase: 181, o1Amp: 18, o1Phase: 161 },
+      { id: 'tateyama',  area: 'chiba_ibaraki', name: '館山湾・保田・洲崎（内房南）',       lat: 34.992, lon: 139.855, z0: 88,  m2Amp: 40, m2Phase: 147, s2Amp: 19, s2Phase: 177, k1Amp: 22, k1Phase: 178, o1Amp: 17, o1Phase: 158 },
+      { id: 'shirahama', area: 'chiba_ibaraki', name: '白浜・野島崎・千倉（南房総）',       lat: 34.908, lon: 139.889, z0: 86,  m2Amp: 39, m2Phase: 144, s2Amp: 18, s2Phase: 174, k1Amp: 22, k1Phase: 176, o1Amp: 17, o1Phase: 156 },
+      { id: 'katsuura',  area: 'chiba_ibaraki', name: '勝浦・鴨川・小湊（外房）',           lat: 35.141, lon: 140.312, z0: 85,  m2Amp: 38, m2Phase: 138, s2Amp: 18, s2Phase: 168, k1Amp: 22, k1Phase: 172, o1Amp: 17, o1Phase: 152 },
+      { id: 'ohara',     area: 'chiba_ibaraki', name: '大原・御宿・太東（外房）',           lat: 35.253, lon: 140.402, z0: 84,  m2Amp: 38, m2Phase: 135, s2Amp: 18, s2Phase: 165, k1Amp: 22, k1Phase: 170, o1Amp: 17, o1Phase: 150 },
+      { id: 'katakai',   area: 'chiba_ibaraki', name: '九十九里・片貝・飯岡漁港',           lat: 35.533, lon: 140.461, z0: 82,  m2Amp: 37, m2Phase: 130, s2Amp: 17, s2Phase: 160, k1Amp: 22, k1Phase: 167, o1Amp: 17, o1Phase: 147 },
+      { id: 'choshi',    area: 'chiba_ibaraki', name: '銚子漁港・外川・利根川河口',         lat: 35.738, lon: 140.861, z0: 80,  m2Amp: 36, m2Phase: 122, s2Amp: 17, s2Phase: 152, k1Amp: 22, k1Phase: 162, o1Amp: 18, o1Phase: 142 },
+      { id: 'kashima',   area: 'chiba_ibaraki', name: '鹿島港・波崎・鹿島灘サーフ（茨城）', lat: 35.931, lon: 140.697, z0: 79,  m2Amp: 36, m2Phase: 120, s2Amp: 16, s2Phase: 150, k1Amp: 22, k1Phase: 160, o1Amp: 18, o1Phase: 140 },
+      { id: 'oarai',     area: 'chiba_ibaraki', name: '大洗・那珂湊・涸沼川河口（茨城）',   lat: 36.311, lon: 140.575, z0: 78,  m2Amp: 35, m2Phase: 118, s2Amp: 16, s2Phase: 148, k1Amp: 22, k1Phase: 158, o1Amp: 18, o1Phase: 138 },
+      { id: 'hitachi',   area: 'chiba_ibaraki', name: '日立港・久慈漁港・大津港（茨城北）', lat: 36.489, lon: 140.623, z0: 77,  m2Amp: 35, m2Phase: 116, s2Amp: 16, s2Phase: 146, k1Amp: 22, k1Phase: 157, o1Amp: 18, o1Phase: 137 },
+
+      // ■ 静岡（伊豆半島・駿河湾）（12港）
+      { id: 'atami',     area: 'shizuoka_izu_suruga', name: '熱海港・網代・初島（東伊豆）',       lat: 35.091, lon: 139.078, z0: 88,  m2Amp: 41, m2Phase: 154, s2Amp: 19, s2Phase: 184, k1Amp: 22, k1Phase: 181, o1Amp: 17, o1Phase: 161 },
+      { id: 'ito',       area: 'shizuoka_izu_suruga', name: '伊東港・川奈・富戸（東伊豆）',       lat: 34.972, lon: 139.104, z0: 88,  m2Amp: 41, m2Phase: 155, s2Amp: 19, s2Phase: 185, k1Amp: 22, k1Phase: 181, o1Amp: 17, o1Phase: 162 },
+      { id: 'inatori',   area: 'shizuoka_izu_suruga', name: '稲取港・熱川・河津（東伊豆南）',     lat: 34.772, lon: 139.044, z0: 89,  m2Amp: 42, m2Phase: 156, s2Amp: 20, s2Phase: 186, k1Amp: 22, k1Phase: 182, o1Amp: 17, o1Phase: 163 },
+      { id: 'shimoda',   area: 'shizuoka_izu_suruga', name: '下田港・須崎・白浜（南伊豆）',       lat: 34.671, lon: 138.949, z0: 91,  m2Amp: 43, m2Phase: 158, s2Amp: 20, s2Phase: 188, k1Amp: 22, k1Phase: 183, o1Amp: 17, o1Phase: 164 },
+      { id: 'irozaki',   area: 'shizuoka_izu_suruga', name: '石廊崎・妻良・松崎（南〜西伊豆）',   lat: 34.602, lon: 138.845, z0: 93,  m2Amp: 44, m2Phase: 160, s2Amp: 21, s2Phase: 190, k1Amp: 23, k1Phase: 184, o1Amp: 18, o1Phase: 165 },
+      { id: 'toi',       area: 'shizuoka_izu_suruga', name: '土肥・仁科・宇久須（西伊豆）',       lat: 34.912, lon: 138.788, z0: 95,  m2Amp: 45, m2Phase: 162, s2Amp: 21, s2Phase: 192, k1Amp: 23, k1Phase: 185, o1Amp: 18, o1Phase: 166 },
+      { id: 'heda',      area: 'shizuoka_izu_suruga', name: '戸田（へだ）港・大瀬崎（西伊豆北）', lat: 34.973, lon: 138.775, z0: 96,  m2Amp: 46, m2Phase: 163, s2Amp: 22, s2Phase: 193, k1Amp: 23, k1Phase: 185, o1Amp: 18, o1Phase: 166 },
+      { id: 'numazu',    area: 'shizuoka_izu_suruga', name: '沼津港・内浦湾・静浦・木負',         lat: 35.083, lon: 138.856, z0: 96,  m2Amp: 46, m2Phase: 163, s2Amp: 22, s2Phase: 193, k1Amp: 23, k1Phase: 185, o1Amp: 18, o1Phase: 166 },
+      { id: 'tagonoura', area: 'shizuoka_izu_suruga', name: '田子の浦港・富士サーフ・由比漁港',   lat: 35.134, lon: 138.695, z0: 97,  m2Amp: 46, m2Phase: 164, s2Amp: 22, s2Phase: 194, k1Amp: 23, k1Phase: 186, o1Amp: 18, o1Phase: 167 },
+      { id: 'shimizu',   area: 'shizuoka_izu_suruga', name: '清水港・三保松原・興津（静岡市）',   lat: 35.012, lon: 138.501, z0: 98,  m2Amp: 47, m2Phase: 165, s2Amp: 22, s2Phase: 195, k1Amp: 23, k1Phase: 186, o1Amp: 18, o1Phase: 167 },
+      { id: 'yaizu',     area: 'shizuoka_izu_suruga', name: '焼津港・小川港・用宗・吉田漁港',     lat: 34.868, lon: 138.332, z0: 99,  m2Amp: 48, m2Phase: 166, s2Amp: 22, s2Phase: 196, k1Amp: 23, k1Phase: 187, o1Amp: 18, o1Phase: 168 },
+      { id: 'omaezaki',  area: 'shizuoka_izu_suruga', name: '御前崎港・地頭方・相良（駿河湾口）', lat: 34.602, lon: 138.225, z0: 101, m2Amp: 49, m2Phase: 168, s2Amp: 23, s2Phase: 198, k1Amp: 24, k1Phase: 188, o1Amp: 18, o1Phase: 169 },
+
+      // ■ 静岡（遠州灘・浜名湖）（2港）
+      { id: 'fukude',    area: 'shizuoka_enshu',      name: '福田漁港・磐田・天竜川河口（遠州灘）', lat: 34.664, lon: 137.884, z0: 103, m2Amp: 50, m2Phase: 170, s2Amp: 23, s2Phase: 200, k1Amp: 24, k1Phase: 189, o1Amp: 18, o1Phase: 170 },
+      { id: 'maisaka',   area: 'shizuoka_enshu',      name: '舞阪港・浜名湖（今切口・新居海釣公園）', lat: 34.682, lon: 137.608, z0: 104, m2Amp: 51, m2Phase: 172, s2Amp: 24, s2Phase: 202, k1Amp: 24, k1Phase: 190, o1Amp: 18, o1Phase: 171 },
+
+      // ■ 全国主要エリア（8港）
+      { id: 'sendai',    area: 'other_nationwide',    name: '仙台新港・塩釜・松島（宮城）',       lat: 38.273, lon: 141.044, z0: 84,  m2Amp: 38, m2Phase: 112, s2Amp: 18, s2Phase: 148, k1Amp: 23, k1Phase: 155, o1Amp: 18, o1Phase: 138 },
+      { id: 'niigata',   area: 'other_nationwide',    name: '新潟西港・東港（日本海）',           lat: 37.945, lon: 139.068, z0: 25,  m2Amp: 8,  m2Phase: 85,  s2Amp: 4,  s2Phase: 115, k1Amp: 8,  k1Phase: 320, o1Amp: 8,  o1Phase: 300 },
+      { id: 'nagoya',    area: 'other_nationwide',    name: '名古屋港・知多・衣浦（伊勢湾）',     lat: 35.084, lon: 136.881, z0: 135, m2Amp: 74, m2Phase: 178, s2Amp: 34, s2Phase: 208, k1Amp: 25, k1Phase: 192, o1Amp: 19, o1Phase: 172 },
+      { id: 'osaka',     area: 'other_nationwide',    name: '大阪南港・神戸・武庫川（大阪湾）',   lat: 34.646, lon: 135.428, z0: 96,  m2Amp: 43, m2Phase: 215, s2Amp: 21, s2Phase: 242, k1Amp: 26, k1Phase: 206, o1Amp: 20, o1Phase: 185 },
+      { id: 'akashi',    area: 'other_nationwide',    name: '明石・淡路島（明石海峡・播磨灘）',   lat: 34.642, lon: 134.996, z0: 82,  m2Amp: 34, m2Phase: 245, s2Amp: 15, s2Phase: 270, k1Amp: 24, k1Phase: 215, o1Amp: 18, o1Phase: 195 },
+      { id: 'hiroshima', area: 'other_nationwide',    name: '広島・宇品・呉（瀬戸内海）',         lat: 34.351, lon: 132.463, z0: 192, m2Amp: 112,m2Phase: 278, s2Amp: 48, s2Phase: 310, k1Amp: 31, k1Phase: 222, o1Amp: 23, o1Phase: 200 },
+      { id: 'hakata',    area: 'other_nationwide',    name: '博多湾・姪浜・糸島（福岡）',         lat: 33.606, lon: 130.398, z0: 122, m2Amp: 68, m2Phase: 285, s2Amp: 30, s2Phase: 312, k1Amp: 21, k1Phase: 228, o1Amp: 17, o1Phase: 208 },
+      { id: 'naha',      area: 'other_nationwide',    name: '那覇港・糸満（沖縄本島）',           lat: 26.212, lon: 127.668, z0: 118, m2Amp: 66, m2Phase: 198, s2Amp: 28, s2Phase: 224, k1Amp: 21, k1Phase: 210, o1Amp: 16, o1Phase: 190 }
     ];
 
     /*************************************************************************
-     * 2. アプリケーション状態管理 (State)
+     * 2. アプリケーション状態管理 (State) ＆ 安全ストレージラッパー
      *************************************************************************/
+    const memoryStorage = {};
+    const safeStorage = {
+      getItem(key) {
+        try {
+          if (typeof window !== 'undefined' && window.localStorage) {
+            return window.localStorage.getItem(key);
+          }
+        } catch (e) {}
+        return Object.prototype.hasOwnProperty.call(memoryStorage, key) ? memoryStorage[key] : null;
+      },
+      setItem(key, val) {
+        try {
+          memoryStorage[key] = String(val);
+          if (typeof window !== 'undefined' && window.localStorage) {
+            window.localStorage.setItem(key, String(val));
+          }
+        } catch (e) {}
+      }
+    };
+
     const state = {
       selectedPort: PORTS[0],
+      activeAreaFilter: 'all',  // 'all' | 'fav' | 'tokyo_miura' | 'shonan_seisho' | 'chiba_ibaraki' | 'shizuoka_izu_suruga' | 'shizuoka_enshu' | 'other_nationwide'
+      favoritePortIds: ['tokyo', 'yokohama', 'kisarazu', 'enoshima', 'numazu', 'shimizu'],
+      customGpsPort: null,
       selectedDate: new Date(), // 現在選択中の日付（時刻部分は無視してYYYY-MM-DDとして使用）
       autoUpdate: true,
       timelineStep: 3,          // 3時間ごと or 1時間ごと
@@ -652,8 +616,18 @@
       weatherCache: {},         // key: `${portId}` -> Open-Meteoの7日間データ
       lastWeatherFetch: null,
       apiOnline: true,
+      errorCount: 0,
       dayData: null             // 現在選択日の計算済み潮位・BI・気象データ
     };
+
+    // グローバルエラーハンドラー（万一の例外時も画面を止めない）
+    window.addEventListener('error', (ev) => {
+      state.errorCount++;
+      console.warn('Recovered from runtime error:', ev.message);
+    });
+    window.addEventListener('unhandledrejection', (ev) => {
+      console.warn('Recovered from promise rejection:', ev.reason);
+    });
 
     /*************************************************************************
      * 3. 天文・月齢・太陽・潮汐・BI値 計算エンジン
@@ -1091,7 +1065,7 @@
     }
 
     /**
-     * Open-Meteo API から選択中の港の気象データを取得
+     * Open-Meteo API から選択中の港の気象データを取得（タイムアウト制御付き）
      */
     async function fetchWeatherFromOpenMeteo(port, force = false) {
       const cacheKey = port.id;
@@ -1105,10 +1079,17 @@
 
       const url = `https://api.open-meteo.com/v1/forecast?latitude=${port.lat}&longitude=${port.lon}&hourly=temperature_2m,precipitation_probability,weather_code,surface_pressure,wind_speed_10m,wind_direction_10m&wind_speed_unit=ms&timezone=Asia%2FTokyo&past_days=2&forecast_days=7`;
 
+      const controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
+      const timeoutId = controller ? setTimeout(() => controller.abort(), 6500) : null;
+
       try {
-        const res = await fetch(url);
+        const res = await fetch(url, controller ? { signal: controller.signal } : {});
+        if (timeoutId) clearTimeout(timeoutId);
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const data = await res.json();
+        if (!data || !data.hourly || !Array.isArray(data.hourly.time)) {
+          throw new Error('Invalid Open-Meteo response structure');
+        }
 
         const byDate = {};
         const times = data.hourly.time;
@@ -1145,6 +1126,7 @@
         updateApiStatusUI(true);
         return byDate;
       } catch (err) {
+        if (timeoutId) clearTimeout(timeoutId);
         console.warn('Open-Meteo fetch fallback activated:', err);
         state.apiOnline = false;
         state.lastWeatherFetch = new Date();
@@ -1165,10 +1147,10 @@
       }
       if (badgeEl) {
         if (online) {
-          badgeEl.textContent = '● Open-Meteo リアルタイム連動中';
+          badgeEl.textContent = `● LIVE気象連動中 (エラー${state.errorCount}件)`;
           badgeEl.className = 'text-emerald-400 font-semibold';
         } else {
-          badgeEl.textContent = '● 標準気象シミュレーション動作中';
+          badgeEl.textContent = `● 標準気象モデル表示中 (エラー${state.errorCount}件)`;
           badgeEl.className = 'text-amber-400 font-semibold';
         }
       }
@@ -1239,7 +1221,7 @@
       }
 
       return `
-        <svg viewBox="0 0 44 44" class="w-11 h-11 drop-shadow">
+        <svg viewBox="0 0 44 44" class="w-10 h-10 drop-shadow">
           <circle cx="${cx}" cy="${cy}" r="${r}" fill="#1e293b" stroke="#475569" stroke-width="1.2" />
           ${litPath}
           <circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="rgba(253, 224, 71, 0.35)" stroke-width="1" />
@@ -1248,196 +1230,91 @@
     }
 
     /**
-     * 週間カレンダーストリップの描画
-     */
-    function renderWeekStrip() {
-      const container = document.getElementById('weekStrip');
-      if (!container) return;
-
-      const today = new Date();
-      const dayNames = ['日', '月', '火', '水', '木', '金', '土'];
-
-      // 選択中の日を基準に7日間（前日〜5日後、または今日から7日間）を表示
-      const baseDate = new Date(state.selectedDate);
-      baseDate.setDate(baseDate.getDate() - 1);
-
-      let html = '';
-      for (let i = 0; i < 7; i++) {
-        const d = new Date(baseDate);
-        d.setDate(baseDate.getDate() + i);
-        const isSelected = isSameDay(d, state.selectedDate);
-        const isToday = isSameDay(d, today);
-        const moon = calcMoonInfo(d);
-        const hourlyW = getHourlyWeatherForDate(state.selectedPort, d);
-        const noonW = hourlyW[12] || hourlyW[0];
-        const dateKey = formatDateKey(d);
-        const dow = d.getDay();
-
-        const dowColor = dow === 0 ? 'text-rose-400' : (dow === 6 ? 'text-sky-400' : 'text-slate-400');
-        const activeClasses = isSelected
-          ? 'bg-gradient-to-b from-sky-500/30 to-marine-800 border-sky-400 shadow-md shadow-sky-500/15 ring-1 ring-sky-400/50'
-          : 'glass-card hover:border-sky-500/40';
-
-        let tideBadgeClass = 'bg-slate-700 text-slate-200';
-        if (moon.tideName === '大潮') tideBadgeClass = 'bg-amber-500/30 text-amber-300 border border-amber-400/40';
-        else if (moon.tideName === '中潮') tideBadgeClass = 'bg-sky-500/25 text-sky-300 border border-sky-400/30';
-        else if (moon.tideName === '小潮') tideBadgeClass = 'bg-emerald-500/25 text-emerald-300 border border-emerald-400/30';
-
-        html += `
-          <button type="button" data-date="${dateKey}" class="week-day-btn ${activeClasses} rounded-xl p-1.5 sm:p-2 flex flex-col items-center justify-between transition active:scale-95">
-            <div class="flex items-center gap-1 text-[10px] font-bold ${dowColor}">
-              <span>${d.getMonth() + 1}/${d.getDate()}</span>
-              <span>(${dayNames[dow]})</span>
-            </div>
-            <div class="my-1 text-sm sm:text-base">${noonW.weatherInfo.emoji}</div>
-            <div class="flex items-center gap-1">
-              <span class="px-1.5 py-0.2 rounded text-[10px] font-extrabold ${tideBadgeClass}">${moon.tideName}</span>
-            </div>
-            ${isToday ? '<span class="mt-0.5 text-[9px] text-emerald-400 font-bold">●今日</span>' : '<span class="mt-0.5 text-[9px] text-slate-500 font-mono">月' + moon.moonAge + '</span>'}
-          </button>
-        `;
-      }
-
-      container.innerHTML = html;
-      container.querySelectorAll('.week-day-btn').forEach(btn => {
-        btn.addEventListener('click', () => {
-          const parts = btn.getAttribute('data-date').split('-').map(Number);
-          state.selectedDate = new Date(parts[0], parts[1] - 1, parts[2]);
-          state.inspectMinutes = null;
-          updateAllDashboard();
-        });
-      });
-    }
-
-    /**
-     * 上段カード・時合いベスト3・時間別タイムラインの更新
+     * 上段4分割サマリー・時合いTOP3・時間別テーブル・BI内訳の更新
      */
     function renderDashboardCards() {
       const { moonInfo, sunMoon, points, hourlyPoints, extrema, primeTimes } = state.dayData;
       const now = new Date();
       const isToday = isSameDay(state.selectedDate, now);
-      const currentMinutes = isToday ? (now.getHours() * 60 + now.getMinutes()) : 720; // 今日以外は12:00基準または最大時合い
+      const currentMinutes = isToday ? (now.getHours() * 60 + now.getMinutes()) : 720;
 
       // 現在の10分スロットを取得
       const currentSlotIdx = Math.min(points.length - 1, Math.round(currentMinutes / 10));
       const currPt = points[currentSlotIdx];
       const currHourW = hourlyPoints[Math.min(23, Math.floor(currentMinutes / 60))].weather;
 
-      // 日付見出し
-      const dayNames = ['日', '月', '火', '水', '木', '金', '土'];
-      const dateStrJP = `${state.selectedDate.getMonth() + 1}月${state.selectedDate.getDate()}日 (${dayNames[state.selectedDate.getDay()]})`;
-      document.getElementById('selectedDateLabel').textContent = isToday
-        ? `${dateStrJP} 現在 (${minutesToHHMM(currentMinutes)}) の時合い`
-        : `${dateStrJP} 日中基準の時合い評価`;
-
-      // 1. BI円形ゲージと内訳バー
-      const biVal = currPt.bi;
-      const biRankObj = currPt.biRank;
-      const circumference = 264;
-      const offset = circumference - (biVal / 100) * circumference;
-      const gaugeCircle = document.getElementById('biGaugeCircle');
-      gaugeCircle.style.strokeDashoffset = offset;
-      gaugeCircle.style.stroke = biRankObj.color;
-
-      document.getElementById('currentBiValue').textContent = biVal;
-      const rankEl = document.getElementById('biRankText');
-      rankEl.textContent = biRankObj.rank;
-      rankEl.style.color = biRankObj.color;
-
-      const { tideScore, astroScore, weatherScore } = currPt.biFactors;
-      document.getElementById('biFactorTide').textContent = `${tideScore}/45`;
-      document.getElementById('biBarTide').style.width = `${Math.round((tideScore / 45) * 100)}%`;
-
-      document.getElementById('biFactorAstro').textContent = `${astroScore}/35`;
-      document.getElementById('biBarAstro').style.width = `${Math.round((astroScore / 35) * 100)}%`;
-
-      document.getElementById('biFactorWeather').textContent = `${weatherScore}/20`;
-      document.getElementById('biBarWeather').style.width = `${Math.round((weatherScore / 20) * 100)}%`;
-
-      // BIひとことコメント
-      let comment = '';
-      if (biVal >= 85) comment = '🔥 潮の効きとマズメ・気圧条件が合致する激アツ時合い！集中的にキャストを！';
-      else if (biVal >= 70) comment = '✨ 潮流がしっかり効いており高活性。潮目やブレイクラインを重点攻略。';
-      else if (biVal >= 55) comment = '👍 適度に潮が動く標準コンディション。ベイトの回遊レンジを探りましょう。';
-      else if (biVal >= 40) comment = '🌊 潮の動きがやや緩やか。ボトムやストラクチャー周りを丁寧にネチネチ攻める時間帯。';
-      else comment = '☕ 潮止まり前後の待機タイム。ルアーローテーションや次の動き出し準備に最適。';
-      document.getElementById('biSummaryComment').textContent = comment;
-
-      // 2. 現在潮位・潮名・月齢・太陽情報
-      document.getElementById('currentTideHeight').textContent = Math.round(currPt.cm);
-      const sign = currPt.speedCmPerHour > 0 ? '+' : '';
-      document.getElementById('currentTideStateBadge').textContent = `${currPt.tideStateLabel} (${sign}${currPt.speedCmPerHour}cm/h)`;
-
+      // ヘッダー2段目：月齢＆潮回りバッジ
+      document.getElementById('moonAgeText').textContent = moonInfo.moonAge.toFixed(1);
       const tideBadge = document.getElementById('tideNameBadge');
       tideBadge.textContent = moonInfo.tideName;
       if (moonInfo.tideName === '大潮') {
-        tideBadge.className = 'inline-block mt-0.5 px-3 py-1 rounded-xl font-black text-base bg-gradient-to-r from-amber-500 to-orange-500 text-marine-950 shadow-md shadow-amber-500/20';
+        tideBadge.className = 'px-2 py-0.5 rounded-md font-black text-[11px] bg-gradient-to-r from-amber-500 to-orange-500 text-marine-950 shadow-sm';
       } else if (moonInfo.tideName === '中潮') {
-        tideBadge.className = 'inline-block mt-0.5 px-3 py-1 rounded-xl font-black text-base bg-gradient-to-r from-sky-400 to-cyan-500 text-marine-950 shadow-md shadow-sky-500/20';
+        tideBadge.className = 'px-2 py-0.5 rounded-md font-black text-[11px] bg-gradient-to-r from-sky-400 to-cyan-500 text-marine-950 shadow-sm';
       } else {
-        tideBadge.className = 'inline-block mt-0.5 px-3 py-1 rounded-xl font-black text-base bg-gradient-to-r from-emerald-400 to-teal-500 text-marine-950 shadow-md shadow-emerald-500/20';
+        tideBadge.className = 'px-2 py-0.5 rounded-md font-black text-[11px] bg-gradient-to-r from-emerald-400 to-teal-500 text-marine-950 shadow-sm';
       }
 
-      document.getElementById('moonSvgContainer').innerHTML = renderMoonSvg(moonInfo.phase);
-      document.getElementById('moonAgeText').textContent = moonInfo.moonAge.toFixed(1);
-      document.getElementById('moonIllumText').textContent = `輝面 ${moonInfo.illumination}%`;
+      // 4分割コンパクトサマリーグリッド更新
+      // ① 現在潮位・流速
+      document.getElementById('currentTideHeight').textContent = Math.round(currPt.cm);
+      const sign = currPt.speedCmPerHour > 0 ? '+' : '';
+      const arrowChar = currPt.speedCmPerHour > 3 ? '↗' : (currPt.speedCmPerHour < -3 ? '↘' : '−');
+      document.getElementById('currentTideStateBadge').textContent = `${arrowChar}${sign}${currPt.speedCmPerHour}cm/h`;
 
-      document.getElementById('sunriseText').textContent = sunMoon.sunriseStr;
-      document.getElementById('sunsetText').textContent = sunMoon.sunsetStr;
-      document.getElementById('moonriseText').textContent = sunMoon.moonriseStr;
-      document.getElementById('moonsetText').textContent = sunMoon.moonsetStr;
-      document.getElementById('morningMazumeText').textContent = `${minutesToHHMM(sunMoon.morningMazume.start)}-${minutesToHHMM(sunMoon.morningMazume.end)}`;
-      document.getElementById('eveningMazumeText').textContent = `${minutesToHHMM(sunMoon.eveningMazume.start)}-${minutesToHHMM(sunMoon.eveningMazume.end)}`;
+      // ② 現在BI値・ランク
+      const biVal = currPt.bi;
+      const biRankObj = currPt.biRank;
+      document.getElementById('currentBiValue').textContent = biVal;
+      const biRankBadge = document.getElementById('biRankBadge');
+      biRankBadge.textContent = biRankObj.rank;
+      biRankBadge.className = `px-1.5 py-0.2 rounded text-[9px] font-black border ${biRankObj.bgClass}`;
+      const biShortStatus = document.getElementById('biShortStatus');
+      biShortStatus.textContent = biRankObj.label;
+      biShortStatus.style.color = biRankObj.color;
 
-      // 3. 現在気象カード
-      document.getElementById('portLocationSub').textContent = `${state.selectedPort.lat.toFixed(2)}°N, ${state.selectedPort.lon.toFixed(2)}°E`;
-      document.getElementById('portNameTitle').textContent = state.selectedPort.name;
+      // ③ 天気・気温・降水確率
       document.getElementById('weatherMainIcon').innerHTML = `<i class="fa-solid ${currHourW.weatherInfo.icon}"></i>`;
       document.getElementById('currentTempText').textContent = currHourW.temp.toFixed(1);
       document.getElementById('currentWeatherDesc').textContent = currHourW.weatherInfo.label;
+      document.getElementById('currentPrecipProb').textContent = `${currHourW.precipProb}%`;
+
+      // ④ 風向・風速・気圧
       document.getElementById('currentWindSpeed').textContent = currHourW.windSpeed.toFixed(1);
       document.getElementById('currentWindDirText').textContent = currHourW.windDirJP;
-      // 風向矢印の回転（風が吹いてくる方向から吹いていく方向へ）
       const arrowEl = document.getElementById('windDirArrow');
       arrowEl.style.transform = `rotate(${currHourW.windDir + 135}deg)`;
-
       document.getElementById('currentPressureText').textContent = currHourW.pressure;
       const pTrendEl = document.getElementById('pressureTrendBadge');
       if (currHourW.pressureTrend < -0.2) {
-        pTrendEl.textContent = '↘低下中(高活性)';
-        pTrendEl.className = 'text-[10px] text-amber-400 font-bold';
+        pTrendEl.textContent = '↘';
+        pTrendEl.className = 'text-amber-400 font-bold';
       } else if (currHourW.pressureTrend > 0.2) {
-        pTrendEl.textContent = '↗上昇中';
-        pTrendEl.className = 'text-[10px] text-sky-400 font-bold';
+        pTrendEl.textContent = '↗';
+        pTrendEl.className = 'text-sky-400 font-bold';
       } else {
-        pTrendEl.textContent = '→安定';
-        pTrendEl.className = 'text-[10px] text-emerald-400 font-bold';
+        pTrendEl.textContent = '→';
+        pTrendEl.className = 'text-emerald-400 font-bold';
       }
-      document.getElementById('currentPrecipProb').textContent = `${currHourW.precipProb}%`;
 
-      // 4. 満潮・干潮一覧カード
+      // 満潮・干潮 ＆ 日出・日没スリムバー
+      document.getElementById('sunriseText').textContent = sunMoon.sunriseStr;
+      document.getElementById('sunsetText').textContent = sunMoon.sunsetStr;
+
       const hlContainer = document.getElementById('highLowCardsContainer');
       if (extrema.length === 0) {
-        hlContainer.innerHTML = `<div class="col-span-4 text-center text-xs text-slate-400 py-2">満潮・干潮データなし</div>`;
+        hlContainer.innerHTML = `<span class="text-[10px] text-slate-400">満干潮なし</span>`;
       } else {
         hlContainer.innerHTML = extrema.map(ex => {
           const isHigh = ex.type === 'high';
-          const badgeCls = isHigh
-            ? 'bg-rose-500/20 text-rose-300 border-rose-500/40'
-            : 'bg-sky-500/20 text-sky-300 border-sky-500/40';
-          const icon = isHigh ? 'fa-arrow-trend-up text-rose-400' : 'fa-arrow-trend-down text-sky-400';
+          const pillCls = isHigh
+            ? 'bg-rose-500/15 text-rose-300 border-rose-500/35'
+            : 'bg-sky-500/15 text-sky-300 border-sky-500/35';
           return `
-            <button type="button" data-min="${ex.minute}" class="extrema-jump-btn bg-marine-900/80 hover:bg-marine-800 border border-slate-800 rounded-xl p-2.5 flex items-center justify-between transition text-left active:scale-95">
-              <div>
-                <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-extrabold border ${badgeCls}">
-                  <i class="fa-solid ${icon}"></i> ${ex.label}
-                </span>
-                <div class="mt-1 font-mono font-black text-base sm:text-lg text-white">${ex.timeStr}</div>
-              </div>
-              <div class="text-right">
-                <span class="text-[10px] text-slate-400 block">潮位</span>
-                <span class="font-mono font-extrabold text-sm sm:text-base ${isHigh ? 'text-rose-300' : 'text-sky-300'}">${ex.cm}<small class="text-[10px] ml-0.5">cm</small></span>
-              </div>
+            <button type="button" data-min="${ex.minute}" class="extrema-jump-btn px-2 py-0.5 rounded-lg border ${pillCls} flex items-center gap-1 text-[10px] font-mono active:scale-95 transition">
+              <span class="font-sans font-extrabold">${ex.label}</span>
+              <strong class="text-white">${ex.timeStr}</strong>
+              <span>(${ex.cm}cm)</span>
             </button>
           `;
         }).join('');
@@ -1451,29 +1328,30 @@
         });
       }
 
-      // 5. 本日の時合い（狙い目タイム）ベスト3
+      // タブ1：本日の時合いTOP3（コンパクトな横長カード3枚）
       const primeContainer = document.getElementById('primeTimesList');
       primeContainer.innerHTML = primeTimes.map((pt, idx) => {
-        const medals = ['🥇 第1位 (最有力時合い)', '🥈 第2位 (好機タイム)', '🥉 第3位 (準時合い)'];
+        const medals = ['🥇 1位', '🥈 2位', '🥉 3位'];
         const signSpd = pt.speedCmPerHour > 0 ? '+' : '';
         return `
-          <div data-min="${pt.peakMinute}" class="prime-jump-card cursor-pointer bg-marine-900/75 hover:bg-marine-800/90 border border-slate-800 hover:border-amber-400/50 rounded-xl p-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2 transition">
-            <div class="space-y-1">
-              <div class="flex items-center gap-2">
-                <span class="text-xs font-extrabold text-amber-300">${medals[idx]}</span>
-                <span class="px-2 py-0.5 rounded text-[10px] font-bold border ${pt.biRank.bgClass}">
-                  BI ${pt.bi}pt (RANK ${pt.biRank.rank})
-                </span>
+          <div data-min="${pt.peakMinute}" class="prime-jump-card cursor-pointer bg-marine-900/80 hover:bg-marine-800 border border-slate-800/90 hover:border-amber-400/50 rounded-lg px-2.5 py-2 flex items-center justify-between gap-2 transition active:scale-[0.99]">
+            <div class="min-w-0 flex-1">
+              <div class="flex items-center gap-1.5">
+                <span class="text-[11px] font-extrabold text-amber-300 shrink-0">${medals[idx]}</span>
+                <span class="font-mono font-black text-xs sm:text-sm text-white">${pt.rangeStr}</span>
+                <span class="text-[10px] font-mono text-sky-300 bg-sky-500/15 px-1.5 py-0.2 rounded">頂点 ${pt.peakTimeStr}</span>
               </div>
-              <div class="font-mono font-black text-base sm:text-lg text-white flex items-center gap-2">
-                <span>${pt.rangeStr}</span>
-                <span class="text-xs font-normal text-sky-300 bg-sky-500/15 px-2 py-0.5 rounded">ピーク ${pt.peakTimeStr}</span>
+              <div class="text-[10px] text-slate-300 truncate mt-0.5">
+                <i class="fa-solid fa-bolt text-amber-400 mr-1"></i>${pt.reasonText}
               </div>
-              <p class="text-[11px] text-slate-300"><i class="fa-solid fa-wand-magic-sparkles text-amber-400 mr-1"></i>${pt.reasonText}</p>
             </div>
-            <div class="flex sm:flex-col items-center sm:items-end justify-between border-t sm:border-t-0 pt-2 sm:pt-0 border-slate-800 text-right shrink-0">
-              <span class="text-xs font-bold text-sky-300">${pt.flowLabel}</span>
-              <span class="font-mono text-xs text-slate-400">潮位 ${pt.cm}cm (${signSpd}${pt.speedCmPerHour}cm/h)</span>
+            <div class="text-right shrink-0">
+              <div class="inline-block px-1.5 py-0.5 rounded text-[10px] font-mono font-extrabold border ${pt.biRank.bgClass}">
+                BI ${pt.bi} (${pt.biRank.rank})
+              </div>
+              <div class="text-[10px] font-mono text-slate-400 mt-0.5">
+                ${pt.cm}cm (${signSpd}${pt.speedCmPerHour})
+              </div>
             </div>
           </div>
         `;
@@ -1484,65 +1362,25 @@
           state.inspectMinutes = Number(card.getAttribute('data-min'));
           updateChartInspector(state.inspectMinutes);
           drawTideChart();
-          document.getElementById('tideCanvas').scrollIntoView({ behavior: 'smooth', block: 'center' });
         });
       });
 
-      // 6. フィールド気象・潮流タクティクス分析
-      const cmValues = points.map(p => p.cm);
-      const maxCm = Math.round(Math.max(...cmValues));
-      const minCm = Math.round(Math.min(...cmValues));
-      const diffCm = maxCm - minCm;
-      const avgWind = Number((hourlyPoints.reduce((acc, h) => acc + h.weather.windSpeed, 0) / 24).toFixed(1));
-      const minPressure = Math.min(...hourlyPoints.map(h => h.weather.pressure));
+      // タブ3：月相・マズメ情報更新
+      document.getElementById('moonSvgContainer').innerHTML = renderMoonSvg(moonInfo.phase);
+      document.getElementById('moonIllumText').textContent = `輝面 ${moonInfo.illumination}%`;
+      document.getElementById('morningMazumeText').textContent = `${minutesToHHMM(sunMoon.morningMazume.start)}-${minutesToHHMM(sunMoon.morningMazume.end)}`;
+      document.getElementById('eveningMazumeText').textContent = `${minutesToHHMM(sunMoon.eveningMazume.start)}-${minutesToHHMM(sunMoon.eveningMazume.end)}`;
 
-      let windAdvice = '';
-      if (avgWind <= 3.0) windAdvice = '終日穏やかな風況。軽量ルアーや繊細なラインメンディングがしやすい好条件です。';
-      else if (avgWind <= 5.5) windAdvice = '適度な風で水面に風波が立ち、魚の警戒心が薄れる好条件。風向きを背にしてキャストを。';
-      else windAdvice = '風がやや強い時間帯あり。シンカーを重めにするか、風裏となる港内・岸壁際を選びましょう。';
-
-      document.getElementById('tacticsCards').innerHTML = `
-        <div class="bg-marine-900/70 rounded-xl p-3 border border-slate-800 flex items-start gap-3">
-          <div class="w-8 h-8 rounded-lg bg-sky-500/20 text-sky-400 flex items-center justify-center shrink-0 mt-0.5">
-            <i class="fa-solid fa-arrows-up-down"></i>
-          </div>
-          <div>
-            <div class="font-bold text-slate-200">本日の最大干満差: <span class="font-mono text-sky-300 text-sm">${diffCm} cm</span> <span class="text-[10px] text-slate-400">(最高 ${maxCm}cm / 最低 ${minCm}cm)</span></div>
-            <p class="text-[11px] text-slate-400 mt-0.5">${diffCm >= 120 ? '干満差が大きく潮流が強く効く1日です。潮目や河口・水道部の変化が明確に出ます。' : '干満差は中〜小規模。潮が動く短い時合いを逃さず、ストラクチャー周りを丁寧に探るのが有効です。'}</p>
-          </div>
-        </div>
-
-        <div class="bg-marine-900/70 rounded-xl p-3 border border-slate-800 flex items-start gap-3">
-          <div class="w-8 h-8 rounded-lg bg-emerald-500/20 text-emerald-400 flex items-center justify-center shrink-0 mt-0.5">
-            <i class="fa-solid fa-wind"></i>
-          </div>
-          <div>
-            <div class="font-bold text-slate-200">日平均風速: <span class="font-mono text-emerald-300 text-sm">${avgWind} m/s</span></div>
-            <p class="text-[11px] text-slate-400 mt-0.5">${windAdvice}</p>
-          </div>
-        </div>
-
-        <div class="bg-marine-900/70 rounded-xl p-3 border border-slate-800 flex items-start gap-3">
-          <div class="w-8 h-8 rounded-lg bg-amber-500/20 text-amber-400 flex items-center justify-center shrink-0 mt-0.5">
-            <i class="fa-solid fa-gauge"></i>
-          </div>
-          <div>
-            <div class="font-bold text-slate-200">最低海面気圧: <span class="font-mono text-amber-300 text-sm">${minPressure} hPa</span></div>
-            <p class="text-[11px] text-slate-400 mt-0.5">${minPressure <= 1010 ? '気圧が低めで推移するため、表層〜中層へベイトやフィッシュイーターが浮きやすい傾向です。' : '高気圧圏内で安定した天候。シェード（日陰）やボトム付近のリアクションバイトも有効です。'}</p>
-          </div>
-        </div>
-      `;
-
-      // インスペクターの初期値更新
+      // インスペクター＆タブ3のBI内訳を更新
       const inspectMin = state.inspectMinutes !== null ? state.inspectMinutes : currentMinutes;
       updateChartInspector(inspectMin);
 
-      // 時間別タイムラインの描画
+      // タブ2：時間別テーブルの描画
       renderHourlyTimeline();
     }
 
     /**
-     * グラフ上部の詳細インスペクターバーを更新
+     * グラフ上部のスリムインスペクターバー ＆ タブ3のBI内訳バーを更新
      */
     function updateChartInspector(targetMinutes) {
       if (!state.dayData) return;
@@ -1560,71 +1398,79 @@
 
       document.getElementById('inspBiScore').textContent = pt.bi;
       const rankBadge = document.getElementById('inspBiRank');
-      rankBadge.textContent = `RANK ${pt.biRank.rank}`;
-      rankBadge.className = `px-1.5 py-0.5 rounded text-[10px] border ${pt.biRank.bgClass}`;
+      rankBadge.textContent = pt.biRank.rank;
+      rankBadge.className = `px-1.5 py-0.2 rounded text-[9px] font-bold border ${pt.biRank.bgClass}`;
 
-      document.getElementById('inspWeather').textContent = `${w.weatherInfo.emoji} ${w.weatherInfo.label}`;
-      document.getElementById('inspTemp').textContent = `${w.temp.toFixed(1)}°C`;
+      document.getElementById('inspWeather').textContent = `${w.weatherInfo.emoji}${w.weatherInfo.label}`;
+      document.getElementById('inspTemp').textContent = `${w.temp.toFixed(1)}℃`;
       document.getElementById('inspWindDir').textContent = w.windDirJP;
       document.getElementById('inspWindSpeed').textContent = `${w.windSpeed.toFixed(1)}m/s`;
       document.getElementById('inspPressure').textContent = w.pressure;
+
+      // タブ3のBI内訳プログレスバーも選択中時刻に連動
+      const { tideScore, astroScore, weatherScore } = pt.biFactors;
+      document.getElementById('detailTargetTimeLabel').textContent = `${pt.timeStr} 時点 (BI:${pt.bi}pt)`;
+      document.getElementById('biFactorTide').textContent = `${tideScore} / 45点`;
+      document.getElementById('biBarTide').style.width = `${Math.round((tideScore / 45) * 100)}%`;
+
+      document.getElementById('biFactorAstro').textContent = `${astroScore} / 35点`;
+      document.getElementById('biBarAstro').style.width = `${Math.round((astroScore / 35) * 100)}%`;
+
+      document.getElementById('biFactorWeather').textContent = `${weatherScore} / 20点`;
+      document.getElementById('biBarWeather').style.width = `${Math.round((weatherScore / 20) * 100)}%`;
+
+      let comment = '';
+      if (pt.bi >= 85) comment = '🔥 潮の効きとマズメ・気圧条件が合致する激アツ時合い！集中的にキャストを！';
+      else if (pt.bi >= 70) comment = '✨ 潮流がしっかり効いており高活性。潮目やブレイクラインを重点攻略。';
+      else if (pt.bi >= 55) comment = '👍 適度に潮が動く標準コンディション。ベイトの回遊レンジを探りましょう。';
+      else if (pt.bi >= 40) comment = '🌊 潮の動きがやや緩やか。ボトムやストラクチャー周りを丁寧に攻める時間帯。';
+      else comment = '☕ 潮止まり前後の待機タイム。ルアー交換や次の動き出し準備に最適。';
+      document.getElementById('biSummaryComment').textContent = comment;
     }
 
     /**
-     * 時間別タイムライン（3時間ごと / 1時間ごと）の描画
+     * タブ2：時間別コンパクトテーブル（3時間ごと / 1時間ごと）の描画
      */
     function renderHourlyTimeline() {
-      const container = document.getElementById('hourlyTimelineContainer');
-      if (!container || !state.dayData) return;
+      const tbody = document.getElementById('hourlyTableBody');
+      if (!tbody || !state.dayData) return;
 
       const { hourlyPoints } = state.dayData;
       const step = state.timelineStep;
       const filtered = hourlyPoints.filter(item => item.hour % step === 0);
 
-      container.innerHTML = filtered.map(item => {
+      tbody.innerHTML = filtered.map(item => {
         const w = item.weather;
         const sign = item.speedCmPerHour > 0 ? '+' : '';
         return `
-          <div data-min="${item.minute}" class="timeline-hour-card shrink-0 w-28 sm:w-32 bg-marine-900/80 hover:bg-marine-800 border border-slate-800 hover:border-sky-400/50 rounded-xl p-2.5 flex flex-col justify-between gap-1.5 cursor-pointer transition active:scale-95">
-            <div class="flex items-center justify-between border-b border-slate-800 pb-1">
-              <span class="font-mono font-extrabold text-xs text-white">${String(item.hour).padStart(2, '0')}:00</span>
-              <span class="px-1.5 py-0.2 rounded text-[10px] font-bold border ${item.biRank.bgClass}">BI ${item.bi}</span>
-            </div>
-
-            <div class="flex items-center justify-between my-0.5">
-              <span class="text-lg">${w.weatherInfo.emoji}</span>
-              <div class="text-right">
-                <span class="font-mono font-bold text-xs text-white block">${w.temp.toFixed(1)}°C</span>
-                <span class="text-[10px] text-sky-300 font-mono">☔${w.precipProb}%</span>
-              </div>
-            </div>
-
-            <div class="bg-marine-950/70 rounded-lg p-1.5 border border-slate-800/80 text-[10px]">
-              <div class="flex justify-between text-slate-300">
-                <span>潮位</span>
-                <strong class="font-mono text-sky-300">${Math.round(item.cm)}cm</strong>
-              </div>
-              <div class="flex justify-between text-slate-400 mt-0.5">
-                <span>流速</span>
-                <span class="font-mono">${sign}${item.speedCmPerHour}</span>
-              </div>
-            </div>
-
-            <div class="flex items-center justify-between text-[10px] text-emerald-300 font-semibold pt-0.5">
-              <span><i class="fa-solid fa-location-arrow mr-0.5" style="transform: rotate(${w.windDir + 135}deg)"></i>${w.windDirJP}</span>
-              <span class="font-mono">${w.windSpeed.toFixed(1)}m/s</span>
-            </div>
-
-            <div class="text-[10px] text-slate-400 font-mono text-center border-t border-slate-800/70 pt-1">
-              ${w.pressure} hPa
-            </div>
-          </div>
+          <tr data-min="${item.minute}" class="timeline-hour-row hover:bg-sky-500/10 cursor-pointer transition">
+            <td class="py-1.5 pl-2 font-mono font-bold text-white">${String(item.hour).padStart(2, '0')}:00</td>
+            <td class="py-1.5">
+              <span>${w.weatherInfo.emoji}</span>
+              <span class="font-mono font-bold text-white">${w.temp.toFixed(1)}℃</span>
+              <span class="text-[9px] text-sky-300 font-mono">(${w.precipProb}%)</span>
+            </td>
+            <td class="py-1.5 text-emerald-300 font-semibold">
+              <i class="fa-solid fa-location-arrow text-[9px] mr-0.5" style="transform: rotate(${w.windDir + 135}deg)"></i>${w.windDirJP}
+              <span class="font-mono">${w.windSpeed.toFixed(1)}</span>
+            </td>
+            <td class="py-1.5 font-mono text-slate-300">${w.pressure}</td>
+            <td class="py-1.5 font-mono">
+              <strong class="text-sky-300">${Math.round(item.cm)}cm</strong>
+              <span class="text-[10px] text-slate-400">(${sign}${item.speedCmPerHour})</span>
+            </td>
+            <td class="py-1.5 pr-2 text-right">
+              <span class="px-1.5 py-0.5 rounded text-[10px] font-mono font-bold border ${item.biRank.bgClass}">
+                ${item.bi}(${item.biRank.rank})
+              </span>
+            </td>
+          </tr>
         `;
       }).join('');
 
-      container.querySelectorAll('.timeline-hour-card').forEach(card => {
-        card.addEventListener('click', () => {
-          state.inspectMinutes = Number(card.getAttribute('data-min'));
+      tbody.querySelectorAll('.timeline-hour-row').forEach(row => {
+        row.addEventListener('click', () => {
+          state.inspectMinutes = Number(row.getAttribute('data-min'));
           updateChartInspector(state.inspectMinutes);
           drawTideChart();
         });
@@ -1632,23 +1478,15 @@
     }
 
     /**
-     * Canvas タイドグラフ × BI値複合チャートの高精細描画
+     * SVG タイドグラフ × BI値複合チャートの高精細描画（サイズ0エラーが絶対に発生しないベクター描画）
      */
     function drawTideChart() {
-      const canvas = document.getElementById('tideCanvas');
-      if (!canvas || !state.dayData) return;
+      const svg = document.getElementById('tideSvgChart');
+      if (!svg || !state.dayData) return;
 
-      const rect = canvas.parentElement.getBoundingClientRect();
-      const dpr = window.devicePixelRatio || 1;
-      canvas.width = rect.width * dpr;
-      canvas.height = rect.height * dpr;
-
-      const ctx = canvas.getContext('2d');
-      ctx.scale(dpr, dpr);
-
-      const W = rect.width;
-      const H = rect.height;
-      const pad = { top: 34, right: 38, bottom: 34, left: 42 };
+      const W = 720;
+      const H = 205;
+      const pad = { top: 22, right: 34, bottom: 24, left: 36 };
       const plotW = W - pad.left - pad.right;
       const plotH = H - pad.top - pad.bottom;
 
@@ -1658,245 +1496,138 @@
       const allCm = points.map(p => p.cm);
       const minCmRaw = Math.min(...allCm);
       const maxCmRaw = Math.max(...allCm);
-      const minCm = Math.floor((minCmRaw - 25) / 20) * 20;
-      const maxCm = Math.ceil((maxCmRaw + 30) / 20) * 20;
+      const minCm = Math.floor((minCmRaw - 20) / 20) * 20;
+      const maxCm = Math.ceil((maxCmRaw + 25) / 20) * 20;
+      const cmRange = Math.max(40, maxCm - minCm);
 
-      const minToX = (m) => pad.left + (m / 1440) * plotW;
-      const cmToY = (cm) => pad.top + plotH - ((cm - minCm) / (maxCm - minCm)) * plotH;
-      const biToY = (bi) => pad.top + plotH - (bi / 100) * (plotH * 0.78);
+      const minToX = (m) => Number((pad.left + (m / 1440) * plotW).toFixed(1));
+      const cmToY = (cm) => Number((pad.top + plotH - ((cm - minCm) / cmRange) * plotH).toFixed(1));
+      const biToY = (bi) => Number((pad.top + plotH - (bi / 100) * (plotH * 0.78)).toFixed(1));
 
-      ctx.clearRect(0, 0, W, H);
+      let parts = [];
 
-      // 1. 夜間・日中・朝夕マズメの背景ハイライト帯
-      // 夜間（0:00〜日出、日没〜24:00）
-      ctx.fillStyle = 'rgba(2, 6, 23, 0.45)';
-      ctx.fillRect(pad.left, pad.top, minToX(sunMoon.sunriseMin) - pad.left, plotH);
-      ctx.fillRect(minToX(sunMoon.sunsetMin), pad.top, minToX(1440) - minToX(sunMoon.sunsetMin), plotH);
+      // グラデーション定義
+      parts.push(`
+        <defs>
+          <linearGradient id="tideAreaGrad" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stop-color="#38bdf8" stop-opacity="0.42" />
+            <stop offset="70%" stop-color="#0ea5e9" stop-opacity="0.12" />
+            <stop offset="100%" stop-color="#0ea5e9" stop-opacity="0.02" />
+          </linearGradient>
+          <linearGradient id="mazumeGrad" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stop-color="#f59e0b" stop-opacity="0.25" />
+            <stop offset="100%" stop-color="#f43f5e" stop-opacity="0.05" />
+          </linearGradient>
+        </defs>
+      `);
 
-      // 朝マズメ帯 & 夕マズメ帯のグラデーションハイライト
-      const drawMazumeBand = (startMin, endMin, label) => {
+      // 1. 夜間帯シェーディング & 朝夕マズメ帯
+      const srX = minToX(Math.max(0, sunMoon.sunriseMin));
+      const ssX = minToX(Math.min(1440, sunMoon.sunsetMin));
+      parts.push(`<rect x="${pad.left}" y="${pad.top}" width="${Math.max(0, srX - pad.left)}" height="${plotH}" fill="rgba(2,6,23,0.48)" />`);
+      parts.push(`<rect x="${ssX}" y="${pad.top}" width="${Math.max(0, (pad.left + plotW) - ssX)}" height="${plotH}" fill="rgba(2,6,23,0.48)" />`);
+
+      const addMazumeBand = (startMin, endMin, label) => {
         const x1 = minToX(Math.max(0, startMin));
         const x2 = minToX(Math.min(1440, endMin));
-        const grad = ctx.createLinearGradient(0, pad.top, 0, pad.top + plotH);
-        grad.addColorStop(0, 'rgba(245, 158, 11, 0.25)');
-        grad.addColorStop(1, 'rgba(244, 63, 94, 0.06)');
-        ctx.fillStyle = grad;
-        ctx.fillRect(x1, pad.top, x2 - x1, plotH);
-
-        ctx.fillStyle = 'rgba(251, 191, 36, 0.85)';
-        ctx.font = 'bold 10px "Inter", "Noto Sans JP", sans-serif';
-        ctx.textAlign = 'center';
-        ctx.fillText(label, (x1 + x2) / 2, pad.top + 12);
+        const bw = Math.max(2, x2 - x1);
+        parts.push(`<rect x="${x1}" y="${pad.top}" width="${bw}" height="${plotH}" fill="url(#mazumeGrad)" />`);
+        parts.push(`<text x="${((x1 + x2) / 2).toFixed(1)}" y="${pad.top + 11}" fill="#fbbf24" font-size="10" font-weight="bold" text-anchor="middle">${label}</text>`);
       };
-      drawMazumeBand(sunMoon.morningMazume.start, sunMoon.morningMazume.end, '🌅朝マズメ');
-      drawMazumeBand(sunMoon.eveningMazume.start, sunMoon.eveningMazume.end, '🌇夕マズメ');
+      addMazumeBand(sunMoon.morningMazume.start, sunMoon.morningMazume.end, '朝マズメ');
+      addMazumeBand(sunMoon.eveningMazume.start, sunMoon.eveningMazume.end, '夕マズメ');
 
       // 2. 背景グリッド線（潮位Y軸 & 時刻X軸）
-      ctx.strokeStyle = 'rgba(148, 163, 184, 0.12)';
-      ctx.lineWidth = 1;
-
-      const cmStep = (maxCm - minCm) > 220 ? 50 : 40;
-      ctx.fillStyle = '#94a3b8';
-      ctx.font = '10px "JetBrains Mono", monospace';
-      ctx.textAlign = 'right';
+      const cmStep = cmRange > 200 ? 60 : 40;
       for (let c = minCm; c <= maxCm; c += cmStep) {
         const y = cmToY(c);
-        ctx.beginPath();
-        ctx.moveTo(pad.left, y);
-        ctx.lineTo(pad.left + plotW, y);
-        ctx.stroke();
-        ctx.fillText(`${c}`, pad.left - 6, y + 3);
+        parts.push(`<line x1="${pad.left}" y1="${y}" x2="${pad.left + plotW}" y2="${y}" stroke="rgba(148,163,184,0.14)" stroke-width="1" />`);
+        parts.push(`<text x="${pad.left - 5}" y="${y + 3.5}" fill="#94a3b8" font-size="10" font-family="JetBrains Mono, monospace" text-anchor="end">${c}</text>`);
       }
 
-      // 右Y軸ラベル（BI値 0〜100）
       if (state.showBiOverlay) {
-        ctx.textAlign = 'left';
-        ctx.fillStyle = 'rgba(251, 191, 36, 0.75)';
-        [50, 80, 100].forEach(biVal => {
+        [50, 85].forEach(biVal => {
           const y = biToY(biVal);
-          ctx.fillText(`BI${biVal}`, pad.left + plotW + 4, y + 3);
+          parts.push(`<text x="${pad.left + plotW + 4}" y="${y + 3.5}" fill="rgba(251,191,36,0.8)" font-size="9.5" font-family="JetBrains Mono, monospace" text-anchor="start">BI${biVal}</text>`);
         });
       }
 
-      // X軸（3時間ごとの縦ラインとラベル）
-      ctx.textAlign = 'center';
-      ctx.fillStyle = '#94a3b8';
       for (let h = 0; h <= 24; h += 3) {
         const x = minToX(h * 60);
-        ctx.beginPath();
-        ctx.moveTo(x, pad.top);
-        ctx.lineTo(x, pad.top + plotH);
-        ctx.stroke();
-        ctx.fillText(`${h}:00`, x, pad.top + plotH + 18);
+        parts.push(`<line x1="${x}" y1="${pad.top}" x2="${x}" y2="${pad.top + plotH}" stroke="rgba(148,163,184,0.13)" stroke-width="1" />`);
+        parts.push(`<text x="${x}" y="${pad.top + plotH + 15}" fill="#94a3b8" font-size="10.5" font-family="JetBrains Mono, monospace" text-anchor="middle">${h}時</text>`);
       }
 
-      // 3. BI値（Bite Index）オーバーレイバーの描画（30分刻み）
+      // 3. BI値オーバーレイバー（30分刻み）
       if (state.showBiOverlay) {
-        const barStep = 3; // pointsは10分刻みなので 3 = 30分ごと
-        const barW = Math.max(3, (plotW / (points.length / barStep)) * 0.62);
+        const barStep = 3;
+        const barW = 7.5;
         for (let i = 0; i < points.length; i += barStep) {
           const pt = points[i];
           const x = minToX(pt.minute);
           const yTop = biToY(pt.bi);
-          const barH = (pad.top + plotH) - yTop;
-
-          ctx.fillStyle = pt.bi >= 85
-            ? 'rgba(244, 63, 94, 0.35)'
-            : (pt.bi >= 70 ? 'rgba(245, 158, 11, 0.30)' : 'rgba(16, 185, 129, 0.18)');
-          ctx.beginPath();
-          ctx.roundRect(x - barW / 2, yTop, barW, barH, [3, 3, 0, 0]);
-          ctx.fill();
+          const barH = Math.max(2, (pad.top + plotH) - yTop);
+          const fill = pt.bi >= 85
+            ? 'rgba(244,63,94,0.38)'
+            : (pt.bi >= 70 ? 'rgba(245,158,11,0.32)' : 'rgba(16,185,129,0.20)');
+          parts.push(`<rect x="${(x - barW / 2).toFixed(1)}" y="${yTop}" width="${barW}" height="${barH.toFixed(1)}" rx="2" fill="${fill}" />`);
         }
       }
 
-      // 4. タイドグラフ（潮位曲線）エリアグラデーション塗りつぶし
-      const areaGrad = ctx.createLinearGradient(0, pad.top, 0, pad.top + plotH);
-      areaGrad.addColorStop(0, 'rgba(56, 189, 248, 0.42)');
-      areaGrad.addColorStop(0.6, 'rgba(14, 165, 233, 0.15)');
-      areaGrad.addColorStop(1, 'rgba(14, 165, 233, 0.02)');
+      // 4. タイドグラフ曲線パス＆エリア塗りつぶし
+      const lineCoords = points.map(pt => `${minToX(pt.minute)},${cmToY(pt.cm)}`);
+      const linePath = `M ${lineCoords.join(' L ')}`;
+      const areaPath = `${linePath} L ${minToX(1440)},${pad.top + plotH} L ${minToX(0)},${pad.top + plotH} Z`;
 
-      ctx.beginPath();
-      points.forEach((pt, idx) => {
-        const x = minToX(pt.minute);
-        const y = cmToY(pt.cm);
-        if (idx === 0) ctx.moveTo(x, y);
-        else ctx.lineTo(x, y);
-      });
-      ctx.lineTo(minToX(1440), pad.top + plotH);
-      ctx.lineTo(minToX(0), pad.top + plotH);
-      ctx.closePath();
-      ctx.fillStyle = areaGrad;
-      ctx.fill();
+      parts.push(`<path d="${areaPath}" fill="url(#tideAreaGrad)" />`);
+      parts.push(`<path d="${linePath}" fill="none" stroke="#38bdf8" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round" />`);
 
-      // 5. タイドグラフ本線のストローク描画
-      ctx.beginPath();
-      points.forEach((pt, idx) => {
-        const x = minToX(pt.minute);
-        const y = cmToY(pt.cm);
-        if (idx === 0) ctx.moveTo(x, y);
-        else ctx.lineTo(x, y);
-      });
-      ctx.strokeStyle = '#38bdf8';
-      ctx.lineWidth = 3;
-      ctx.shadowColor = 'rgba(56, 189, 248, 0.5)';
-      ctx.shadowBlur = 8;
-      ctx.stroke();
-      ctx.shadowBlur = 0;
-
-      // 6. 満潮・干潮ポイントとラベルの描画
+      // 5. 満潮・干潮ピンと時刻・潮位ラベル
       extrema.forEach(ex => {
         const x = minToX(ex.minute);
         const y = cmToY(ex.cm);
         const isHigh = ex.type === 'high';
+        const dotColor = isHigh ? '#fb7185' : '#38bdf8';
+        const textColor = isHigh ? '#fda4af' : '#7dd3fc';
+        const labelY = isHigh ? Math.max(pad.top + 12, y - 8) : Math.min(pad.top + plotH - 4, y + 14);
+        const clampedX = Math.max(pad.left + 32, Math.min(pad.left + plotW - 32, x));
 
-        ctx.beginPath();
-        ctx.arc(x, y, 5, 0, Math.PI * 2);
-        ctx.fillStyle = isHigh ? '#fb7185' : '#38bdf8';
-        ctx.fill();
-        ctx.lineWidth = 2;
-        ctx.strokeStyle = '#040b16';
-        ctx.stroke();
-
-        const labelY = isHigh ? Math.max(pad.top + 14, y - 10) : Math.min(pad.top + plotH - 6, y + 18);
-        ctx.font = 'bold 11px "JetBrains Mono", monospace';
-        ctx.fillStyle = isHigh ? '#fda4af' : '#7dd3fc';
-        ctx.textAlign = 'center';
-        ctx.fillText(`${ex.timeStr} (${ex.cm}cm)`, Math.max(pad.left + 38, Math.min(pad.left + plotW - 38, x)), labelY);
+        parts.push(`<circle cx="${x}" cy="${y}" r="4.5" fill="${dotColor}" stroke="#040b16" stroke-width="1.5" />`);
+        parts.push(`<text x="${clampedX}" y="${labelY}" fill="${textColor}" font-size="10.5" font-weight="bold" font-family="JetBrains Mono, monospace" text-anchor="middle">${ex.timeStr}(${ex.cm})</text>`);
       });
 
-      // 7. 今日の場合、現在時刻のリアルタイム縦ライン＆現在潮位マーカーを描画
+      // 6. 今日の場合、現在時刻のリアルタイム縦ライン＆現在潮位ドット
       const now = new Date();
       if (isSameDay(state.selectedDate, now)) {
         const nowMin = now.getHours() * 60 + now.getMinutes();
         const nowX = minToX(nowMin);
         const nowCm = calcTideHeightAtMinute(state.selectedPort, state.selectedDate, nowMin);
         const nowY = cmToY(nowCm);
+        const badgeX = Math.max(pad.left + 26, Math.min(pad.left + plotW - 26, nowX));
 
-        // 縦の破線
-        ctx.save();
-        ctx.setLineDash([4, 4]);
-        ctx.strokeStyle = '#f43f5e';
-        ctx.lineWidth = 1.8;
-        ctx.beginPath();
-        ctx.moveTo(nowX, pad.top);
-        ctx.lineTo(nowX, pad.top + plotH);
-        ctx.stroke();
-        ctx.restore();
-
-        // 現在時刻ラベルピル
-        ctx.fillStyle = '#f43f5e';
-        ctx.beginPath();
-        ctx.roundRect(nowX - 28, 6, 56, 18, 6);
-        ctx.fill();
-        ctx.fillStyle = '#ffffff';
-        ctx.font = 'bold 10px "JetBrains Mono", monospace';
-        ctx.textAlign = 'center';
-        ctx.fillText(`現在 ${minutesToHHMM(nowMin)}`, nowX, 18);
-
-        // 現在潮位の光るマーカー
-        ctx.beginPath();
-        ctx.arc(nowX, nowY, 10, 0, Math.PI * 2);
-        ctx.fillStyle = 'rgba(244, 63, 94, 0.3)';
-        ctx.fill();
-
-        ctx.beginPath();
-        ctx.arc(nowX, nowY, 5.5, 0, Math.PI * 2);
-        ctx.fillStyle = '#f43f5e';
-        ctx.fill();
-        ctx.lineWidth = 2;
-        ctx.strokeStyle = '#ffffff';
-        ctx.stroke();
+        parts.push(`<line x1="${nowX}" y1="${pad.top}" x2="${nowX}" y2="${pad.top + plotH}" stroke="#f43f5e" stroke-width="1.6" stroke-dasharray="4,3" />`);
+        parts.push(`<rect x="${badgeX - 25}" y="3" width="50" height="15" rx="4" fill="#f43f5e" />`);
+        parts.push(`<text x="${badgeX}" y="13.5" fill="#ffffff" font-size="9.5" font-weight="bold" font-family="JetBrains Mono, monospace" text-anchor="middle">今${minutesToHHMM(nowMin)}</text>`);
+        parts.push(`<circle cx="${nowX}" cy="${nowY}" r="8.5" fill="rgba(244,63,94,0.28)" />`);
+        parts.push(`<circle cx="${nowX}" cy="${nowY}" r="4.5" fill="#f43f5e" stroke="#ffffff" stroke-width="1.5" />`);
       }
 
-      // 8. タップ/ホバーでインスペクト中の時刻カーソル描画
+      // 7. タッチ/スワイプでインスペクト中の時刻カーソル
       if (state.inspectMinutes !== null) {
         const idx = Math.max(0, Math.min(points.length - 1, Math.round(state.inspectMinutes / 10)));
         const pt = points[idx];
         const ix = minToX(pt.minute);
         const iy = cmToY(pt.cm);
 
-        ctx.strokeStyle = 'rgba(251, 191, 36, 0.85)';
-        ctx.lineWidth = 1.5;
-        ctx.beginPath();
-        ctx.moveTo(ix, pad.top);
-        ctx.lineTo(ix, pad.top + plotH);
-        ctx.stroke();
-
-        ctx.beginPath();
-        ctx.arc(ix, iy, 6, 0, Math.PI * 2);
-        ctx.fillStyle = '#fbbf24';
-        ctx.fill();
-        ctx.lineWidth = 2;
-        ctx.strokeStyle = '#040b16';
-        ctx.stroke();
-
-        // キャンバス内ミニツールチップボックス
-        const boxW = 132;
-        const boxH = 44;
-        const boxX = ix + 12 + boxW > pad.left + plotW ? ix - boxW - 12 : ix + 12;
-        const boxY = Math.max(pad.top + 6, Math.min(pad.top + plotH - boxH - 6, iy - boxH / 2));
-
-        ctx.fillStyle = 'rgba(7, 19, 36, 0.92)';
-        ctx.strokeStyle = 'rgba(251, 191, 36, 0.6)';
-        ctx.lineWidth = 1;
-        ctx.beginPath();
-        ctx.roundRect(boxX, boxY, boxW, boxH, 8);
-        ctx.fill();
-        ctx.stroke();
-
-        ctx.textAlign = 'left';
-        ctx.fillStyle = '#fde047';
-        ctx.font = 'bold 11px "JetBrains Mono", monospace';
-        ctx.fillText(`${pt.timeStr} | BI:${pt.bi} (${pt.biRank.rank})`, boxX + 8, boxY + 17);
-        ctx.fillStyle = '#e2e8f0';
-        ctx.font = '11px "JetBrains Mono", monospace';
-        const sign = pt.speedCmPerHour > 0 ? '+' : '';
-        ctx.fillText(`潮位:${Math.round(pt.cm)}cm (${sign}${pt.speedCmPerHour})`, boxX + 8, boxY + 34);
+        parts.push(`<line x1="${ix}" y1="${pad.top}" x2="${ix}" y2="${pad.top + plotH}" stroke="rgba(251,191,36,0.95)" stroke-width="1.8" />`);
+        parts.push(`<circle cx="${ix}" cy="${iy}" r="5.5" fill="#fbbf24" stroke="#040b16" stroke-width="1.8" />`);
       }
+
+      svg.innerHTML = parts.join('');
     }
 
     /*************************************************************************
-     * 6. 全体更新フロー＆イベントリスナー設定
+     * 6. 全体更新フロー＆イベントリスナー設定（即時レンダリング＋非同期気象更新）
      *************************************************************************/
 
     async function updateAllDashboard(forceWeather = false) {
@@ -1904,104 +1635,183 @@
       const dp = document.getElementById('datePicker');
       if (dp) dp.value = formatDateKey(state.selectedDate);
 
-      // 今日・明日ボタンのハイライト状態更新
+      // 今日ボタンのハイライト状態更新
       const now = new Date();
-      const tomorrow = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
       const todayBtn = document.getElementById('todayBtn');
-      const tomorrowBtn = document.getElementById('tomorrowBtn');
-
-      if (isSameDay(state.selectedDate, now)) {
-        todayBtn.className = 'px-2.5 py-1.5 rounded-lg bg-sky-500 text-marine-950 text-xs font-extrabold shadow-sm shadow-sky-500/30 transition';
-        tomorrowBtn.className = 'px-2.5 py-1.5 rounded-lg bg-marine-800/90 hover:bg-marine-700 text-slate-300 text-xs font-semibold border border-slate-700/70 transition';
-      } else if (isSameDay(state.selectedDate, tomorrow)) {
-        tomorrowBtn.className = 'px-2.5 py-1.5 rounded-lg bg-sky-500 text-marine-950 text-xs font-extrabold shadow-sm shadow-sky-500/30 transition';
-        todayBtn.className = 'px-2.5 py-1.5 rounded-lg bg-marine-800/90 hover:bg-marine-700 text-slate-300 text-xs font-semibold border border-slate-700/70 transition';
-      } else {
-        todayBtn.className = 'px-2.5 py-1.5 rounded-lg bg-marine-800/90 hover:bg-marine-700 text-slate-300 text-xs font-semibold border border-slate-700/70 transition';
-        tomorrowBtn.className = 'px-2.5 py-1.5 rounded-lg bg-marine-800/90 hover:bg-marine-700 text-slate-300 text-xs font-semibold border border-slate-700/70 transition';
+      if (todayBtn) {
+        if (isSameDay(state.selectedDate, now)) {
+          todayBtn.className = 'px-2 py-0.5 rounded bg-sky-500 text-marine-950 text-[10px] font-extrabold shadow-sm transition';
+        } else {
+          todayBtn.className = 'px-2 py-0.5 rounded bg-marine-800 hover:bg-marine-700 text-slate-300 text-[10px] font-semibold border border-slate-700/70 transition';
+        }
       }
 
-      // Open-Meteo 気象データの取得（非同期）
-      await fetchWeatherFromOpenMeteo(state.selectedPort, forceWeather);
-
-      // 選択日の気象データ＆潮汐・BIデータを生成
-      const hourlyW = getHourlyWeatherForDate(state.selectedPort, state.selectedDate);
-      state.dayData = buildDayTideAndBI(state.selectedPort, state.selectedDate, hourlyW);
-
-      // 画面パーツの描画
-      renderWeekStrip();
+      // STEP 1: 通信待ちゼロで即座に潮位・BI・標準気象モデルを描画（空白画面を絶対に作らない）
+      const initialHourlyW = getHourlyWeatherForDate(state.selectedPort, state.selectedDate);
+      state.dayData = buildDayTideAndBI(state.selectedPort, state.selectedDate, initialHourlyW);
       renderDashboardCards();
       drawTideChart();
+
+      // STEP 2: Open-Meteo 気象データを非同期で取得し、取得完了後に最新気象で再計算・再描画
+      const fetched = await fetchWeatherFromOpenMeteo(state.selectedPort, forceWeather);
+      if (fetched) {
+        const liveHourlyW = getHourlyWeatherForDate(state.selectedPort, state.selectedDate);
+        state.dayData = buildDayTideAndBI(state.selectedPort, state.selectedDate, liveHourlyW);
+        renderDashboardCards();
+        drawTideChart();
+      }
     }
 
     /**
-     * GPS現在地取得（最寄りの港の潮汐定数を引き継ぎつつ現在地座標で気象・日出日没を計算）
+     * 港プルダウン (<select id="portSelect">) を現在のエリア絞込・お気に入り状態に応じて構築
+     */
+    function populatePortSelect() {
+      const portSelect = document.getElementById('portSelect');
+      if (!portSelect) return;
+
+      const area = state.activeAreaFilter;
+      let html = '';
+
+      if (state.customGpsPort) {
+        html += `<option value="${state.customGpsPort.id}">📍 ${state.customGpsPort.name}</option>`;
+      }
+
+      if (area === 'fav') {
+        const favPorts = PORTS.filter(p => state.favoritePortIds.includes(p.id));
+        const list = favPorts.length > 0 ? favPorts : PORTS;
+        html += `<optgroup label="★ お気に入り登録港">`;
+        list.forEach(p => {
+          html += `<option value="${p.id}">★ ${p.name}</option>`;
+        });
+        html += `</optgroup>`;
+      } else if (area === 'all') {
+        // お気に入りを最上段に表示＋エリア別optgroup
+        const favPorts = PORTS.filter(p => state.favoritePortIds.includes(p.id));
+        if (favPorts.length > 0) {
+          html += `<optgroup label="★ お気に入り登録港">`;
+          favPorts.forEach(p => {
+            html += `<option value="${p.id}">★ ${p.name}</option>`;
+          });
+          html += `</optgroup>`;
+        }
+        Object.keys(AREA_LABELS).forEach(areaKey => {
+          const groupPorts = PORTS.filter(p => p.area === areaKey);
+          if (groupPorts.length > 0) {
+            html += `<optgroup label="■ ${AREA_LABELS[areaKey]}">`;
+            groupPorts.forEach(p => {
+              const star = state.favoritePortIds.includes(p.id) ? '★ ' : '';
+              html += `<option value="${p.id}">${star}${p.name}</option>`;
+            });
+            html += `</optgroup>`;
+          }
+        });
+      } else {
+        const groupPorts = PORTS.filter(p => p.area === area);
+        html += `<optgroup label="■ ${AREA_LABELS[area] || '選択エリア'}">`;
+        groupPorts.forEach(p => {
+          const star = state.favoritePortIds.includes(p.id) ? '★ ' : '';
+          html += `<option value="${p.id}">${star}${p.name}</option>`;
+        });
+        html += `</optgroup>`;
+      }
+
+      portSelect.innerHTML = html;
+      if (state.selectedPort) {
+        portSelect.value = state.selectedPort.id;
+      }
+    }
+
+    /**
+     * お気に入りボタン (★) のアイコン・色状態を更新
+     */
+    function updateFavButtonUI() {
+      const btn = document.getElementById('favPortBtn');
+      const icon = document.getElementById('favPortIcon');
+      if (!btn || !icon || !state.selectedPort) return;
+
+      const isFav = state.favoritePortIds.includes(state.selectedPort.id);
+      if (isFav) {
+        btn.className = 'w-6 h-6 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 active:scale-95 border border-amber-400/50 text-amber-300 text-xs flex items-center justify-center shrink-0 transition';
+        icon.className = 'fa-solid fa-star';
+      } else {
+        btn.className = 'w-6 h-6 rounded-lg bg-marine-800 hover:bg-marine-700 active:scale-95 border border-slate-700 text-slate-400 text-xs flex items-center justify-center shrink-0 transition';
+        icon.className = 'fa-regular fa-star';
+      }
+    }
+
+    /**
+     * 2点間の距離(km)をHaversine公式で計算
+     */
+    function calcDistanceKm(lat1, lon1, lat2, lon2) {
+      const rad = Math.PI / 180;
+      const dLat = (lat2 - lat1) * rad;
+      const dLon = (lon2 - lon1) * rad;
+      const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+                Math.cos(lat1 * rad) * Math.cos(lat2 * rad) *
+                Math.sin(dLon / 2) * Math.sin(dLon / 2);
+      return 6371 * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    }
+
+    /**
+     * GPS現在地ボタンから最寄りの港の潮汐特性＋現在地のリアルタイム気象を取得
      */
     function handleGpsLocation() {
       if (!navigator.geolocation) {
-        showToast('お使いのブラウザは現在地取得に対応していません', 'fa-triangle-exclamation text-amber-400');
+        showToast('お使いのブラウザはGPS位置情報に対応していません', 'fa-triangle-exclamation text-amber-400');
         return;
       }
 
-      showToast('現在地（GPS）を測位中...', 'fa-satellite-dish text-sky-400 fa-spin');
+      showToast('GPSで現在地と最寄りの釣り場を検索中...', 'fa-satellite-dish text-sky-400');
       navigator.geolocation.getCurrentPosition(
         async (pos) => {
           const { latitude, longitude } = pos.coords;
-          // 最も近いプリセット港を検索して潮汐調和定数を継承
-          let nearestPort = PORTS[0];
+          let nearest = PORTS[0];
           let minDist = Infinity;
           PORTS.forEach(p => {
-            const d = Math.hypot(p.lat - latitude, p.lon - longitude);
+            const d = calcDistanceKm(latitude, longitude, p.lat, p.lon);
             if (d < minDist) {
               minDist = d;
-              nearestPort = p;
+              nearest = p;
             }
           });
 
-          const customPort = {
-            ...nearestPort,
-            id: `gps_${latitude.toFixed(2)}_${longitude.toFixed(2)}`,
-            name: `現在地周辺 (${nearestPort.name.split(' ')[0]}基準)`,
-            lat: latitude,
-            lon: longitude
+          const shortNearest = nearest.name.split('（')[0];
+          state.customGpsPort = {
+            ...nearest,
+            id: `gps_${Math.round(latitude * 100)}_${Math.round(longitude * 100)}`,
+            name: `現在地 (${shortNearest}基準・${Math.round(minDist)}km)`,
+            lat: Number(latitude.toFixed(4)),
+            lon: Number(longitude.toFixed(4))
           };
-
-          // セレクトボックスに現在地オプションを追加または更新
-          const select = document.getElementById('portSelect');
-          let gpsOpt = select.querySelector('option[value="custom_gps"]');
-          if (!gpsOpt) {
-            gpsOpt = document.createElement('option');
-            gpsOpt.value = 'custom_gps';
-            select.prepend(gpsOpt);
-          }
-          gpsOpt.textContent = `📍 ${customPort.name}`;
-          select.value = 'custom_gps';
-
-          state.selectedPort = customPort;
-          showToast(`現在地を取得しました（${nearestPort.name.split(' ')[0]}エリア）`, 'fa-check-circle text-emerald-400');
+          state.selectedPort = state.customGpsPort;
+          populatePortSelect();
+          updateFavButtonUI();
+          showToast(`現在地を取得しました（最寄り: ${shortNearest}）`, 'fa-location-crosshairs text-emerald-400');
           await updateAllDashboard(true);
         },
         (err) => {
           console.warn('Geolocation error:', err);
-          showToast('現在地の取得が許可されていないか失敗しました。港を選択してください。', 'fa-circle-exclamation text-rose-400');
+          showToast('位置情報の取得が許可されていないかタイムアウトしました', 'fa-circle-exclamation text-amber-400');
         },
-        { enableHighAccuracy: false, timeout: 8000 }
+        { enableHighAccuracy: false, timeout: 8000, maximumAge: 60000 }
       );
     }
 
     /**
-     * Canvas上のマウス/タッチ位置から分数 (0〜1440) を算出してインスペクト更新
+     * チャート上のマウス/タッチ位置から分数 (0〜1440) を算出してインスペクト更新
      */
     function bindCanvasInteractions() {
-      const canvas = document.getElementById('tideCanvas');
-      if (!canvas) return;
+      const container = document.getElementById('chartContainer');
+      if (!container) return;
 
       const handlePointer = (clientX) => {
-        const rect = canvas.getBoundingClientRect();
-        const padLeft = 42;
-        const padRight = 38;
-        const plotW = rect.width - padLeft - padRight;
-        const relX = clientX - rect.left - padLeft;
+        const rect = container.getBoundingClientRect();
+        if (!rect.width) return;
+        // SVG viewBox(720) 内のプロット領域比率 (padLeft=36, padRight=34) に合わせてX座標を変換
+        const padLeftPx = (36 / 720) * rect.width;
+        const padRightPx = (34 / 720) * rect.width;
+        const plotW = Math.max(10, rect.width - padLeftPx - padRightPx);
+        const relX = clientX - rect.left - padLeftPx;
         const ratio = Math.max(0, Math.min(1, relX / plotW));
         const minutes = Math.round((ratio * 1440) / 10) * 10;
         state.inspectMinutes = minutes;
@@ -2010,7 +1820,7 @@
       };
 
       let isDragging = false;
-      canvas.addEventListener('mousedown', (e) => {
+      container.addEventListener('mousedown', (e) => {
         isDragging = true;
         handlePointer(e.clientX);
       });
@@ -2021,37 +1831,120 @@
         isDragging = false;
       });
 
-      canvas.addEventListener('mousemove', (e) => {
+      container.addEventListener('mousemove', (e) => {
         handlePointer(e.clientX);
       });
 
-      canvas.addEventListener('touchstart', (e) => {
-        if (e.touches.length > 0) {
+      container.addEventListener('touchstart', (e) => {
+        if (e.touches && e.touches.length > 0) {
           handlePointer(e.touches[0].clientX);
         }
       }, { passive: true });
 
-      canvas.addEventListener('touchmove', (e) => {
-        if (e.touches.length > 0) {
+      container.addEventListener('touchmove', (e) => {
+        if (e.touches && e.touches.length > 0) {
           handlePointer(e.touches[0].clientX);
         }
       }, { passive: true });
     }
 
     /**
-     * 初期化処理
+     * 初期化処理（DOMContentLoaded / window.onload 両対応で確実に1回起動）
      */
-    window.onload = async function () {
-      // 1. 港プリセットセレクトボックスの構築
-      const portSelect = document.getElementById('portSelect');
-      portSelect.innerHTML = PORTS.map(p => `<option value="${p.id}">${p.name}</option>`).join('');
-      portSelect.addEventListener('change', async (e) => {
-        const found = PORTS.find(p => p.id === e.target.value);
-        if (found) {
-          state.selectedPort = found;
-          showToast(`${found.name} の潮汐・気象データに切り替えました`, 'fa-anchor text-sky-400');
-          await updateAllDashboard();
+    let appInitialized = false;
+    async function initTidePulseApp() {
+      if (appInitialized) return;
+      appInitialized = true;
+
+      // 0. お気に入り港リストをsafeStorageから復元
+      try {
+        const savedFavs = safeStorage.getItem('tidepulse_fav_ports');
+        if (savedFavs) {
+          const parsed = JSON.parse(savedFavs);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            state.favoritePortIds = parsed;
+          }
         }
+      } catch (e) {
+        console.warn('safeStorage load skipped:', e);
+      }
+
+      // 1. 港プリセットセレクトボックス＆エリア絞込チップの構築
+      const portSelect = document.getElementById('portSelect');
+      populatePortSelect();
+      updateFavButtonUI();
+
+      portSelect.addEventListener('change', async (e) => {
+        const val = e.target.value;
+        if (state.customGpsPort && val === state.customGpsPort.id) {
+          state.selectedPort = state.customGpsPort;
+        } else {
+          const found = PORTS.find(p => p.id === val);
+          if (found) state.selectedPort = found;
+        }
+        updateFavButtonUI();
+        showToast(`${state.selectedPort.name} に切り替えました`, 'fa-anchor text-sky-400');
+        await updateAllDashboard();
+      });
+
+      // お気に入り★ボタンの登録/解除
+      document.getElementById('favPortBtn').addEventListener('click', () => {
+        const id = state.selectedPort.id;
+        if (id.startsWith('gps_')) {
+          showToast('GPS現在地以外の港をお気に入り登録できます', 'fa-circle-info text-sky-400');
+          return;
+        }
+        const idx = state.favoritePortIds.indexOf(id);
+        if (idx >= 0) {
+          state.favoritePortIds.splice(idx, 1);
+          showToast(`${state.selectedPort.name} をお気に入りから解除しました`, 'fa-regular fa-star text-slate-300');
+        } else {
+          state.favoritePortIds.push(id);
+          showToast(`★ ${state.selectedPort.name} をお気に入りに登録しました`, 'fa-solid fa-star text-amber-400');
+        }
+        safeStorage.setItem('tidepulse_fav_ports', JSON.stringify(state.favoritePortIds));
+        populatePortSelect();
+        updateFavButtonUI();
+      });
+
+      // エリア高速絞込チップバーのクリック処理
+      const areaChips = document.querySelectorAll('.area-chip');
+      areaChips.forEach(chip => {
+        chip.addEventListener('click', async () => {
+          const area = chip.getAttribute('data-area');
+          state.activeAreaFilter = area;
+
+          areaChips.forEach(c => {
+            if (c.getAttribute('data-area') === area) {
+              c.className = 'area-chip px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-sky-500 text-marine-950 shrink-0 transition';
+            } else if (c.getAttribute('data-area') === 'fav') {
+              c.className = 'area-chip px-2 py-0.5 rounded-full text-[10px] font-bold bg-marine-900 text-amber-300 border border-amber-500/30 shrink-0 transition';
+            } else {
+              c.className = 'area-chip px-2 py-0.5 rounded-full text-[10px] font-bold bg-marine-900 text-slate-300 border border-slate-700/80 shrink-0 transition';
+            }
+          });
+
+          // 絞り込んだエリアに現在選択中の港が含まれていなければ、そのエリアの先頭港に自動切替
+          let targetList = PORTS;
+          if (area === 'fav') {
+            targetList = PORTS.filter(p => state.favoritePortIds.includes(p.id));
+            if (targetList.length === 0) {
+              showToast('★ボタンでよく行く港をお気に入り登録できます', 'fa-star text-amber-400');
+              targetList = PORTS;
+            }
+          } else if (area !== 'all') {
+            targetList = PORTS.filter(p => p.area === area);
+          }
+
+          populatePortSelect();
+          if (targetList.length > 0 && !targetList.some(p => p.id === state.selectedPort.id)) {
+            state.selectedPort = targetList[0];
+            portSelect.value = state.selectedPort.id;
+            updateFavButtonUI();
+            showToast(`${state.selectedPort.name} を表示中`, 'fa-location-dot text-sky-400');
+            await updateAllDashboard();
+          }
+        });
       });
 
       // 2. 日付操作イベント
@@ -2073,14 +1966,6 @@
         updateAllDashboard();
       });
 
-      document.getElementById('tomorrowBtn').addEventListener('click', () => {
-        const t = new Date();
-        t.setDate(t.getDate() + 1);
-        state.selectedDate = t;
-        state.inspectMinutes = null;
-        updateAllDashboard();
-      });
-
       document.getElementById('datePicker').addEventListener('change', (e) => {
         if (!e.target.value) return;
         const [y, m, d] = e.target.value.split('-').map(Number);
@@ -2089,7 +1974,7 @@
         updateAllDashboard();
       });
 
-      // 3. GPSボタン・手動更新ボタン・自動更新トグル
+      // 3. GPSボタン・手動更新ボタン・自動更新ボタン
       document.getElementById('gpsBtn').addEventListener('click', handleGpsLocation);
 
       document.getElementById('refreshBtn').addEventListener('click', async () => {
@@ -2097,14 +1982,20 @@
         await updateAllDashboard(true);
       });
 
-      document.getElementById('autoUpdateToggle').addEventListener('change', (e) => {
-        state.autoUpdate = e.target.checked;
-        const liveInd = document.getElementById('liveIndicator');
+      document.getElementById('autoUpdateBtn').addEventListener('click', () => {
+        state.autoUpdate = !state.autoUpdate;
+        const btn = document.getElementById('autoUpdateBtn');
+        const dot = document.getElementById('liveDot');
+        const txt = document.getElementById('liveText');
         if (state.autoUpdate) {
-          liveInd.classList.remove('opacity-40');
+          btn.className = 'px-1.5 py-1 rounded-lg bg-emerald-500/20 border border-emerald-500/40 text-emerald-300 text-[10px] font-bold flex items-center gap-1 shrink-0 active:scale-95';
+          dot.classList.add('animate-ping');
+          txt.textContent = '自動';
           showToast('自動更新をONにしました（潮位1分毎・気象5分毎）', 'fa-bolt text-emerald-400');
         } else {
-          liveInd.classList.add('opacity-40');
+          btn.className = 'px-1.5 py-1 rounded-lg bg-slate-800 border border-slate-700 text-slate-400 text-[10px] font-bold flex items-center gap-1 shrink-0 active:scale-95';
+          dot.classList.remove('animate-ping');
+          txt.textContent = '停止';
           showToast('自動更新を一時停止しました', 'fa-pause text-slate-400');
         }
       });
@@ -2115,32 +2006,57 @@
         drawTideChart();
       });
 
-      // 5. 時間別タイムライン（3時間 / 1時間）切り替え
+      // 5. 下部3タブ切り替えパネル制御
+      const tabButtons = document.querySelectorAll('.tab-switch-btn');
+      const tabPanels = {
+        prime: document.getElementById('tabPanelPrime'),
+        hourly: document.getElementById('tabPanelHourly'),
+        detail: document.getElementById('tabPanelDetail')
+      };
+      tabButtons.forEach(btn => {
+        btn.addEventListener('click', () => {
+          const target = btn.getAttribute('data-tab');
+          tabButtons.forEach(b => {
+            if (b.getAttribute('data-tab') === target) {
+              b.className = 'tab-switch-btn py-1.5 px-2 rounded-md text-xs font-extrabold bg-sky-500 text-marine-950 shadow-sm transition flex items-center justify-center gap-1';
+            } else {
+              b.className = 'tab-switch-btn py-1.5 px-2 rounded-md text-xs font-bold text-slate-300 hover:text-white transition flex items-center justify-center gap-1';
+            }
+          });
+          Object.keys(tabPanels).forEach(k => {
+            if (k === target) tabPanels[k].classList.remove('hidden');
+            else tabPanels[k].classList.add('hidden');
+          });
+        });
+      });
+
+      // 6. 時間別テーブル（3時間毎 / 1時間毎）切り替え
       const step3hBtn = document.getElementById('step3hBtn');
       const step1hBtn = document.getElementById('step1hBtn');
       step3hBtn.addEventListener('click', () => {
         state.timelineStep = 3;
-        step3hBtn.className = 'px-3 py-1 rounded-lg text-xs font-bold bg-sky-500 text-marine-950 transition';
-        step1hBtn.className = 'px-3 py-1 rounded-lg text-xs font-bold text-slate-300 hover:text-white transition';
+        step3hBtn.className = 'px-2 py-0.5 rounded text-[10px] font-bold bg-sky-500 text-marine-950';
+        step1hBtn.className = 'px-2 py-0.5 rounded text-[10px] font-bold text-slate-300';
         renderHourlyTimeline();
       });
       step1hBtn.addEventListener('click', () => {
         state.timelineStep = 1;
-        step1hBtn.className = 'px-3 py-1 rounded-lg text-xs font-bold bg-sky-500 text-marine-950 transition';
-        step3hBtn.className = 'px-3 py-1 rounded-lg text-xs font-bold text-slate-300 hover:text-white transition';
+        step1hBtn.className = 'px-2 py-0.5 rounded text-[10px] font-bold bg-sky-500 text-marine-950';
+        step3hBtn.className = 'px-2 py-0.5 rounded text-[10px] font-bold text-slate-300';
         renderHourlyTimeline();
       });
 
-      // 6. BI算出基準モーダル開閉
+      // 7. BI算出基準モーダル開閉（サマリータイル＆詳細タブ内のボタン両方に対応）
       const biModal = document.getElementById('biModal');
       document.getElementById('biInfoBtn').addEventListener('click', () => biModal.classList.remove('hidden'));
+      document.getElementById('biSummaryTile').addEventListener('click', () => biModal.classList.remove('hidden'));
       document.getElementById('closeBiModalBtn').addEventListener('click', () => biModal.classList.add('hidden'));
       document.getElementById('closeBiModalBottomBtn').addEventListener('click', () => biModal.classList.add('hidden'));
       biModal.addEventListener('click', (e) => {
         if (e.target === biModal) biModal.classList.add('hidden');
       });
 
-      // 7. キャンバス操作＆画面リサイズ対応
+      // 8. キャンバス操作＆画面リサイズ対応
       bindCanvasInteractions();
       window.addEventListener('resize', () => {
         drawTideChart();
@@ -2175,7 +2091,14 @@
 
       // 初回描画実行
       await updateAllDashboard(true);
-    };
+    }
+
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', initTidePulseApp);
+    } else {
+      initTidePulseApp();
+    }
+    window.onload = initTidePulseApp;
   </script>
 </body>
 </html>
