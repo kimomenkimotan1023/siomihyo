@@ -305,9 +305,9 @@
           </div>
         </div>
 
-        <!-- チャート本体（サイズ0エラーが絶対に起きない高精細レスポンシブSVG＋タッチスクラブ対応） -->
+        <!-- チャート本体（実寸1:1ピクセル座標系で文字が縦長に歪まないレスポンシブSVG＋タッチスクラブ対応） -->
         <div id="chartContainer" class="relative w-full h-[195px] bg-marine-950/90 rounded-lg border border-slate-800/90 overflow-hidden cursor-crosshair">
-          <svg id="tideSvgChart" viewBox="0 0 720 205" preserveAspectRatio="none" aria-label="24時間タイドグラフ＆BIチャート"></svg>
+          <svg id="tideSvgChart" viewBox="0 0 380 195" preserveAspectRatio="xMidYMid meet" aria-label="24時間タイドグラフ＆BIチャート"></svg>
         </div>
       </section>
 
@@ -1478,15 +1478,20 @@
     }
 
     /**
-     * SVG タイドグラフ × BI値複合チャートの高精細描画（サイズ0エラーが絶対に発生しないベクター描画）
+     * SVG タイドグラフ × BI値複合チャートの高精細描画（スマホ実寸比率1:1で文字の縦伸びを防止）
      */
     function drawTideChart() {
       const svg = document.getElementById('tideSvgChart');
+      const container = document.getElementById('chartContainer');
       if (!svg || !state.dayData) return;
 
-      const W = 720;
-      const H = 205;
-      const pad = { top: 22, right: 34, bottom: 24, left: 36 };
+      // コンテナの実寸ピクセルに合わせてviewBoxを1:1設定（文字や円の縦長歪みを完全に防ぐ）
+      const rect = container ? container.getBoundingClientRect() : { width: 380, height: 195 };
+      const W = Math.max(300, Math.round(rect.width || 380));
+      const H = Math.max(165, Math.round(rect.height || 195));
+      svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
+
+      const pad = { top: 20, right: 30, bottom: 22, left: 30 };
       const plotW = W - pad.left - pad.right;
       const plotH = H - pad.top - pad.bottom;
 
@@ -1532,7 +1537,7 @@
         const x2 = minToX(Math.min(1440, endMin));
         const bw = Math.max(2, x2 - x1);
         parts.push(`<rect x="${x1}" y="${pad.top}" width="${bw}" height="${plotH}" fill="url(#mazumeGrad)" />`);
-        parts.push(`<text x="${((x1 + x2) / 2).toFixed(1)}" y="${pad.top + 11}" fill="#fbbf24" font-size="10" font-weight="bold" text-anchor="middle">${label}</text>`);
+        parts.push(`<text x="${((x1 + x2) / 2).toFixed(1)}" y="${pad.top + 10}" fill="#fbbf24" font-size="9" font-weight="bold" text-anchor="middle">${label}</text>`);
       };
       addMazumeBand(sunMoon.morningMazume.start, sunMoon.morningMazume.end, '朝マズメ');
       addMazumeBand(sunMoon.eveningMazume.start, sunMoon.eveningMazume.end, '夕マズメ');
@@ -1542,26 +1547,26 @@
       for (let c = minCm; c <= maxCm; c += cmStep) {
         const y = cmToY(c);
         parts.push(`<line x1="${pad.left}" y1="${y}" x2="${pad.left + plotW}" y2="${y}" stroke="rgba(148,163,184,0.14)" stroke-width="1" />`);
-        parts.push(`<text x="${pad.left - 5}" y="${y + 3.5}" fill="#94a3b8" font-size="10" font-family="JetBrains Mono, monospace" text-anchor="end">${c}</text>`);
+        parts.push(`<text x="${pad.left - 4}" y="${y + 3}" fill="#94a3b8" font-size="9.5" font-family="JetBrains Mono, monospace" text-anchor="end">${c}</text>`);
       }
 
       if (state.showBiOverlay) {
         [50, 85].forEach(biVal => {
           const y = biToY(biVal);
-          parts.push(`<text x="${pad.left + plotW + 4}" y="${y + 3.5}" fill="rgba(251,191,36,0.8)" font-size="9.5" font-family="JetBrains Mono, monospace" text-anchor="start">BI${biVal}</text>`);
+          parts.push(`<text x="${pad.left + plotW + 3}" y="${y + 3}" fill="rgba(251,191,36,0.85)" font-size="9" font-family="JetBrains Mono, monospace" text-anchor="start">BI${biVal}</text>`);
         });
       }
 
       for (let h = 0; h <= 24; h += 3) {
         const x = minToX(h * 60);
         parts.push(`<line x1="${x}" y1="${pad.top}" x2="${x}" y2="${pad.top + plotH}" stroke="rgba(148,163,184,0.13)" stroke-width="1" />`);
-        parts.push(`<text x="${x}" y="${pad.top + plotH + 15}" fill="#94a3b8" font-size="10.5" font-family="JetBrains Mono, monospace" text-anchor="middle">${h}時</text>`);
+        parts.push(`<text x="${x}" y="${pad.top + plotH + 14}" fill="#94a3b8" font-size="9.5" font-family="JetBrains Mono, monospace" text-anchor="middle">${h}時</text>`);
       }
 
-      // 3. BI値オーバーレイバー（30分刻み）
+      // 3. BI値オーバーレイバー（30分刻み・画面幅に応じたスリム幅）
       if (state.showBiOverlay) {
         const barStep = 3;
-        const barW = 7.5;
+        const barW = Number(Math.max(3, (plotW / 48) * 0.62).toFixed(1));
         for (let i = 0; i < points.length; i += barStep) {
           const pt = points[i];
           const x = minToX(pt.minute);
@@ -1570,7 +1575,7 @@
           const fill = pt.bi >= 85
             ? 'rgba(244,63,94,0.38)'
             : (pt.bi >= 70 ? 'rgba(245,158,11,0.32)' : 'rgba(16,185,129,0.20)');
-          parts.push(`<rect x="${(x - barW / 2).toFixed(1)}" y="${yTop}" width="${barW}" height="${barH.toFixed(1)}" rx="2" fill="${fill}" />`);
+          parts.push(`<rect x="${(x - barW / 2).toFixed(1)}" y="${yTop}" width="${barW}" height="${barH.toFixed(1)}" rx="1.5" fill="${fill}" />`);
         }
       }
 
@@ -1580,7 +1585,7 @@
       const areaPath = `${linePath} L ${minToX(1440)},${pad.top + plotH} L ${minToX(0)},${pad.top + plotH} Z`;
 
       parts.push(`<path d="${areaPath}" fill="url(#tideAreaGrad)" />`);
-      parts.push(`<path d="${linePath}" fill="none" stroke="#38bdf8" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round" />`);
+      parts.push(`<path d="${linePath}" fill="none" stroke="#38bdf8" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" />`);
 
       // 5. 満潮・干潮ピンと時刻・潮位ラベル
       extrema.forEach(ex => {
@@ -1589,11 +1594,11 @@
         const isHigh = ex.type === 'high';
         const dotColor = isHigh ? '#fb7185' : '#38bdf8';
         const textColor = isHigh ? '#fda4af' : '#7dd3fc';
-        const labelY = isHigh ? Math.max(pad.top + 12, y - 8) : Math.min(pad.top + plotH - 4, y + 14);
-        const clampedX = Math.max(pad.left + 32, Math.min(pad.left + plotW - 32, x));
+        const labelY = isHigh ? Math.max(pad.top + 11, y - 7) : Math.min(pad.top + plotH - 3, y + 13);
+        const clampedX = Math.max(pad.left + 26, Math.min(pad.left + plotW - 26, x));
 
-        parts.push(`<circle cx="${x}" cy="${y}" r="4.5" fill="${dotColor}" stroke="#040b16" stroke-width="1.5" />`);
-        parts.push(`<text x="${clampedX}" y="${labelY}" fill="${textColor}" font-size="10.5" font-weight="bold" font-family="JetBrains Mono, monospace" text-anchor="middle">${ex.timeStr}(${ex.cm})</text>`);
+        parts.push(`<circle cx="${x}" cy="${y}" r="3.8" fill="${dotColor}" stroke="#040b16" stroke-width="1.4" />`);
+        parts.push(`<text x="${clampedX}" y="${labelY}" fill="${textColor}" font-size="9.5" font-weight="bold" font-family="JetBrains Mono, monospace" text-anchor="middle">${ex.timeStr}(${ex.cm})</text>`);
       });
 
       // 6. 今日の場合、現在時刻のリアルタイム縦ライン＆現在潮位ドット
@@ -1603,13 +1608,13 @@
         const nowX = minToX(nowMin);
         const nowCm = calcTideHeightAtMinute(state.selectedPort, state.selectedDate, nowMin);
         const nowY = cmToY(nowCm);
-        const badgeX = Math.max(pad.left + 26, Math.min(pad.left + plotW - 26, nowX));
+        const badgeX = Math.max(pad.left + 24, Math.min(pad.left + plotW - 24, nowX));
 
-        parts.push(`<line x1="${nowX}" y1="${pad.top}" x2="${nowX}" y2="${pad.top + plotH}" stroke="#f43f5e" stroke-width="1.6" stroke-dasharray="4,3" />`);
-        parts.push(`<rect x="${badgeX - 25}" y="3" width="50" height="15" rx="4" fill="#f43f5e" />`);
-        parts.push(`<text x="${badgeX}" y="13.5" fill="#ffffff" font-size="9.5" font-weight="bold" font-family="JetBrains Mono, monospace" text-anchor="middle">今${minutesToHHMM(nowMin)}</text>`);
-        parts.push(`<circle cx="${nowX}" cy="${nowY}" r="8.5" fill="rgba(244,63,94,0.28)" />`);
-        parts.push(`<circle cx="${nowX}" cy="${nowY}" r="4.5" fill="#f43f5e" stroke="#ffffff" stroke-width="1.5" />`);
+        parts.push(`<line x1="${nowX}" y1="${pad.top}" x2="${nowX}" y2="${pad.top + plotH}" stroke="#f43f5e" stroke-width="1.4" stroke-dasharray="4,3" />`);
+        parts.push(`<rect x="${badgeX - 22}" y="2" width="44" height="14" rx="3.5" fill="#f43f5e" />`);
+        parts.push(`<text x="${badgeX}" y="11.5" fill="#ffffff" font-size="9" font-weight="bold" font-family="JetBrains Mono, monospace" text-anchor="middle">今${minutesToHHMM(nowMin)}</text>`);
+        parts.push(`<circle cx="${nowX}" cy="${nowY}" r="7" fill="rgba(244,63,94,0.28)" />`);
+        parts.push(`<circle cx="${nowX}" cy="${nowY}" r="3.8" fill="#f43f5e" stroke="#ffffff" stroke-width="1.4" />`);
       }
 
       // 7. タッチ/スワイプでインスペクト中の時刻カーソル
@@ -1619,8 +1624,8 @@
         const ix = minToX(pt.minute);
         const iy = cmToY(pt.cm);
 
-        parts.push(`<line x1="${ix}" y1="${pad.top}" x2="${ix}" y2="${pad.top + plotH}" stroke="rgba(251,191,36,0.95)" stroke-width="1.8" />`);
-        parts.push(`<circle cx="${ix}" cy="${iy}" r="5.5" fill="#fbbf24" stroke="#040b16" stroke-width="1.8" />`);
+        parts.push(`<line x1="${ix}" y1="${pad.top}" x2="${ix}" y2="${pad.top + plotH}" stroke="rgba(251,191,36,0.95)" stroke-width="1.5" />`);
+        parts.push(`<circle cx="${ix}" cy="${iy}" r="4.5" fill="#fbbf24" stroke="#040b16" stroke-width="1.5" />`);
       }
 
       svg.innerHTML = parts.join('');
@@ -1807,9 +1812,9 @@
       const handlePointer = (clientX) => {
         const rect = container.getBoundingClientRect();
         if (!rect.width) return;
-        // SVG viewBox(720) 内のプロット領域比率 (padLeft=36, padRight=34) に合わせてX座標を変換
-        const padLeftPx = (36 / 720) * rect.width;
-        const padRightPx = (34 / 720) * rect.width;
+        // 1:1ピクセル座標系の左右余白 (pad.left=30, pad.right=30) に合わせてX座標を変換
+        const padLeftPx = 30;
+        const padRightPx = 30;
         const plotW = Math.max(10, rect.width - padLeftPx - padRightPx);
         const relX = clientX - rect.left - padLeftPx;
         const ratio = Math.max(0, Math.min(1, relX / plotW));
