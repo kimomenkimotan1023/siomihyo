@@ -18,6 +18,9 @@
       darkMode: 'class',
       theme: {
         extend: {
+          screens: {
+            xs: '360px',
+          },
           fontFamily: {
             sans: ['"Inter"', '"Noto Sans JP"', 'sans-serif'],
             mono: ['"JetBrains Mono"', 'monospace'],
@@ -163,16 +166,16 @@
           <i id="refreshIcon" class="fa-solid fa-rotate"></i>
         </button>
       </div>
-
-      <!-- エリア高速絞込チップバー（関東・静岡のエリア別ワンタップ切替） -->
+      <!-- エリア高速絞込チップバー（関東・静岡・東北日本海のエリア別ワンタップ切替） -->
       <div id="areaFilterBar" class="mt-1 flex items-center gap-1 overflow-x-auto no-scrollbar py-0.5">
-        <button type="button" data-area="all" class="area-chip px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-sky-500 text-marine-950 shrink-0 transition">すべて(48)</button>
+        <button type="button" data-area="all" class="area-chip px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-sky-500 text-marine-950 shrink-0 transition">すべて(50)</button>
         <button type="button" data-area="fav" class="area-chip px-2 py-0.5 rounded-full text-[10px] font-bold bg-marine-900 text-amber-300 border border-amber-500/30 shrink-0 transition">★お気に入り</button>
         <button type="button" data-area="tokyo_miura" class="area-chip px-2 py-0.5 rounded-full text-[10px] font-bold bg-marine-900 text-slate-300 border border-slate-700/80 shrink-0 transition">東京湾・三浦</button>
         <button type="button" data-area="shonan_seisho" class="area-chip px-2 py-0.5 rounded-full text-[10px] font-bold bg-marine-900 text-slate-300 border border-slate-700/80 shrink-0 transition">湘南・西湘</button>
         <button type="button" data-area="chiba_ibaraki" class="area-chip px-2 py-0.5 rounded-full text-[10px] font-bold bg-marine-900 text-slate-300 border border-slate-700/80 shrink-0 transition">千葉・茨城</button>
         <button type="button" data-area="shizuoka_izu_suruga" class="area-chip px-2 py-0.5 rounded-full text-[10px] font-bold bg-marine-900 text-slate-300 border border-slate-700/80 shrink-0 transition">伊豆・駿河湾</button>
         <button type="button" data-area="shizuoka_enshu" class="area-chip px-2 py-0.5 rounded-full text-[10px] font-bold bg-marine-900 text-slate-300 border border-slate-700/80 shrink-0 transition">遠州・浜名湖</button>
+        <button type="button" data-area="tohoku_nihonkai" class="area-chip px-2 py-0.5 rounded-full text-[10px] font-bold bg-marine-900 text-slate-300 border border-slate-700/80 shrink-0 transition">青森・秋田・東北</button>
         <button type="button" data-area="other_nationwide" class="area-chip px-2 py-0.5 rounded-full text-[10px] font-bold bg-marine-900 text-slate-300 border border-slate-700/80 shrink-0 transition">全国主要</button>
       </div>
 
@@ -283,7 +286,7 @@
         <!-- タッチ連動1〜2行スリムインスペクターバー -->
         <div class="mb-1.5 px-2 py-1 rounded-lg bg-marine-950/90 border border-sky-500/30 flex flex-wrap items-center justify-between gap-x-2 gap-y-0.5 text-[11px]">
           <div class="flex items-center gap-1.5">
-            <span id="inspTime" class="px-1.5 py-0.2 rounded bg-sky-500/20 text-sky-300 font-mono font-extrabold text-xs">12:00</span>
+            <span id="inspTime" title="タップで現在時刻に戻す" class="px-1.5 py-0.5 rounded bg-sky-500/20 text-sky-300 font-mono font-extrabold text-xs cursor-pointer">12:00</span>
             <span class="font-mono font-bold text-white"><span id="inspTideCm">135</span>cm</span>
             <span id="inspTideSpeed" class="font-mono text-[10px] text-sky-300">(+18cm/h)</span>
             <span id="inspTideState" class="text-[10px] text-slate-300 font-semibold hidden xs:inline">上げ潮</span>
@@ -291,7 +294,7 @@
 
           <div class="flex items-center gap-1.5">
             <span class="font-mono font-extrabold text-amber-400">BI:<span id="inspBiScore">76</span></span>
-            <span id="inspBiRank" class="px-1 py-0.2 rounded text-[9px] font-bold bg-amber-500/20 text-amber-300 border border-amber-500/40">A</span>
+            <span id="inspBiRank" class="px-1 py-0.5 rounded text-[9px] font-bold bg-amber-500/20 text-amber-300 border border-amber-500/40">A</span>
             <label class="inline-flex items-center gap-1 cursor-pointer text-[10px] text-slate-300 bg-marine-800 px-1.5 py-0.5 rounded border border-slate-700 select-none">
               <input type="checkbox" id="toggleBiOverlay" checked class="accent-amber-400 w-3 h-3">
               <span>BI棒</span>
@@ -506,7 +509,7 @@
 
   <script>
     /*************************************************************************
-     * 1. 関東・静岡・全国48港の潮汐調和定数データ定義 (PORTS)
+     * 1. 関東・静岡・東北（青森・秋田）・全国50港の潮汐調和定数データ定義 (PORTS)
      *    M2(主太陰半日周潮), S2(主太陽半日周潮), K1(日月合成日周潮), O1(主太陰日周潮), Z0(平均水面cm)
      *************************************************************************/
     const AREA_LABELS = {
@@ -515,6 +518,7 @@
       chiba_ibaraki: '千葉（内房・外房・銚子）・茨城',
       shizuoka_izu_suruga: '静岡（伊豆半島・駿河湾）',
       shizuoka_enshu: '静岡（遠州灘・浜名湖）',
+      tohoku_nihonkai: '青森・秋田・東北・新潟',
       other_nationwide: '全国主要エリア'
     };
 
@@ -569,9 +573,13 @@
       { id: 'fukude',    area: 'shizuoka_enshu',      name: '福田漁港・磐田・天竜川河口（遠州灘）', lat: 34.664, lon: 137.884, z0: 103, m2Amp: 50, m2Phase: 170, s2Amp: 23, s2Phase: 200, k1Amp: 24, k1Phase: 189, o1Amp: 18, o1Phase: 170 },
       { id: 'maisaka',   area: 'shizuoka_enshu',      name: '舞阪港・浜名湖（今切口・新居海釣公園）', lat: 34.682, lon: 137.608, z0: 104, m2Amp: 51, m2Phase: 172, s2Amp: 24, s2Phase: 202, k1Amp: 24, k1Phase: 190, o1Amp: 18, o1Phase: 171 },
 
-      // ■ 全国主要エリア（8港）
-      { id: 'sendai',    area: 'other_nationwide',    name: '仙台新港・塩釜・松島（宮城）',       lat: 38.273, lon: 141.044, z0: 84,  m2Amp: 38, m2Phase: 112, s2Amp: 18, s2Phase: 148, k1Amp: 23, k1Phase: 155, o1Amp: 18, o1Phase: 138 },
-      { id: 'niigata',   area: 'other_nationwide',    name: '新潟西港・東港（日本海）',           lat: 37.945, lon: 139.068, z0: 25,  m2Amp: 8,  m2Phase: 85,  s2Amp: 4,  s2Phase: 115, k1Amp: 8,  k1Phase: 320, o1Amp: 8,  o1Phase: 300 },
+      // ■ 青森・秋田・東北・新潟（4港）
+      { id: 'ajigasawa', area: 'tohoku_nihonkai',     name: '鯵ヶ沢港・赤石川河口・深浦（青森）', lat: 40.783, lon: 140.207, z0: 23,  m2Amp: 8,  m2Phase: 108, s2Amp: 4,  s2Phase: 138, k1Amp: 8,  k1Phase: 335, o1Amp: 8,  o1Phase: 315 },
+      { id: 'noshiro',   area: 'tohoku_nihonkai',     name: '能代港・米代川河口・八森（秋田）',   lat: 40.211, lon: 140.003, z0: 22,  m2Amp: 7,  m2Phase: 102, s2Amp: 3,  s2Phase: 132, k1Amp: 8,  k1Phase: 330, o1Amp: 8,  o1Phase: 310 },
+      { id: 'sendai',    area: 'tohoku_nihonkai',     name: '仙台新港・塩釜・松島（宮城）',       lat: 38.273, lon: 141.044, z0: 84,  m2Amp: 38, m2Phase: 112, s2Amp: 18, s2Phase: 148, k1Amp: 23, k1Phase: 155, o1Amp: 18, o1Phase: 138 },
+      { id: 'niigata',   area: 'tohoku_nihonkai',     name: '新潟西港・東港（日本海）',           lat: 37.945, lon: 139.068, z0: 25,  m2Amp: 8,  m2Phase: 85,  s2Amp: 4,  s2Phase: 115, k1Amp: 8,  k1Phase: 320, o1Amp: 8,  o1Phase: 300 },
+
+      // ■ 全国主要エリア（6港）
       { id: 'nagoya',    area: 'other_nationwide',    name: '名古屋港・知多・衣浦（伊勢湾）',     lat: 35.084, lon: 136.881, z0: 135, m2Amp: 74, m2Phase: 178, s2Amp: 34, s2Phase: 208, k1Amp: 25, k1Phase: 192, o1Amp: 19, o1Phase: 172 },
       { id: 'osaka',     area: 'other_nationwide',    name: '大阪南港・神戸・武庫川（大阪湾）',   lat: 34.646, lon: 135.428, z0: 96,  m2Amp: 43, m2Phase: 215, s2Amp: 21, s2Phase: 242, k1Amp: 26, k1Phase: 206, o1Amp: 20, o1Phase: 185 },
       { id: 'akashi',    area: 'other_nationwide',    name: '明石・淡路島（明石海峡・播磨灘）',   lat: 34.642, lon: 134.996, z0: 82,  m2Amp: 34, m2Phase: 245, s2Amp: 15, s2Phase: 270, k1Amp: 24, k1Phase: 215, o1Amp: 18, o1Phase: 195 },
@@ -751,38 +759,46 @@
     }
 
     /**
-     * 調和定数（M2, S2, K1, O1）から指定分 (minutesFromMidnight: -60 〜 1500) の潮位(cm)を算出
+     * 調和定数（M2, S2, K1, O1）から指定分 (minutesFromMidnight: -60 〜 1500) の連続潮位(cm・丸め前)を算出
+     * 日付境界(24:00=翌0:00)で完全に連続し、新月・満月双方の大潮でM2とS2が正しく同位相で強め合う天文計算式
      */
-    function calcTideHeightAtMinute(port, dateObj, minutesFromMidnight) {
-      const moonInfo = calcMoonInfo(dateObj);
-      const startOfYear = new Date(dateObj.getFullYear(), 0, 0);
-      const dayOfYear = Math.floor((dateObj - startOfYear) / 86400000);
+    function calcTideHeightRaw(port, dateObj, minutesFromMidnight) {
+      const dayStartMs = new Date(dateObj.getFullYear(), dateObj.getMonth(), dateObj.getDate(), 0, 0, 0).getTime();
+      const targetTimeMs = dayStartMs + minutesFromMidnight * 60000;
+
+      // 基準新月 (2000-01-06 18:14 UTC) からの連続月相 (0.0=新月, 0.5=満月)
+      const synodicMonth = 29.530588853;
+      const refNewMoonMs = Date.UTC(2000, 0, 6, 18, 14, 0);
+      const diffDays = (targetTimeMs - refNewMoonMs) / 86400000;
+      const phase = ((diffDays / synodicMonth) % 1 + 1) % 1;
+      const lunarDeg = phase * 360;
+
+      // 年初からの連続日数による太陽黄経近似
+      const yearStartMs = new Date(dateObj.getFullYear(), 0, 1, 0, 0, 0).getTime();
+      const dayOfYearContinuous = (targetTimeMs - yearStartMs) / 86400000;
+      const solarDeg = (dayOfYearContinuous / 365.2422) * 360;
+
       const rad = Math.PI / 180;
-
       const tHours = minutesFromMidnight / 60;
-      // 月の南中位相オフセット（月齢0の新月で太陽と同位相、1日ごとに約24.38°遅れる）
-      const lunarPhaseDeg = moonInfo.phase * 360;
-      const seasonalDeg = (dayOfYear / 365.25) * 360;
 
-      // 各分潮の角速度 (deg/hour)
-      const wM2 = 28.984104; // 主太陰半日周潮
-      const wS2 = 30.000000; // 主太陽半日周潮
-      const wK1 = 15.041069; // 日月合成日周潮
-      const wO1 = 13.943035; // 主太陰日周潮
-
-      // 大潮(phase=0, 0.5)でM2とS2が強め合い、小潮(phase=0.25, 0.75)で打ち消し合う天体位相
-      const argM2 = (wM2 * tHours - lunarPhaseDeg - port.m2Phase) * rad;
-      const argS2 = (wS2 * tHours - port.s2Phase) * rad;
-      const argK1 = (wK1 * tHours + seasonalDeg * 0.5 - lunarPhaseDeg * 0.5 - port.k1Phase) * rad;
-      const argO1 = (wO1 * tHours - seasonalDeg * 0.5 - lunarPhaseDeg * 0.5 - port.o1Phase) * rad;
+      // M2(主太陰半日周潮): 2*lunarDegにより新月(0°)・満月(180°->360°)の両方でS2と同位相になり大潮を形成
+      const argM2 = (30.0 * tHours - 2.0 * lunarDeg - port.m2Phase) * rad;
+      // S2(主太陽半日周潮): 12時間周期 (30 deg/h)
+      const argS2 = (30.0 * tHours - port.s2Phase) * rad;
+      // K1(日月合成日周潮) & O1(主太陰日周潮)
+      const argK1 = (15.0 * tHours + solarDeg * 0.5 - lunarDeg - port.k1Phase) * rad;
+      const argO1 = (15.0 * tHours - solarDeg * 0.5 - lunarDeg - port.o1Phase) * rad;
 
       const hM2 = port.m2Amp * Math.cos(argM2);
       const hS2 = port.s2Amp * Math.cos(argS2);
       const hK1 = port.k1Amp * Math.cos(argK1);
       const hO1 = port.o1Amp * Math.cos(argO1);
 
-      const height = port.z0 + hM2 + hS2 + hK1 + hO1;
-      return Math.round(height * 10) / 10;
+      return port.z0 + hM2 + hS2 + hK1 + hO1;
+    }
+
+    function calcTideHeightAtMinute(port, dateObj, minutesFromMidnight) {
+      return Math.round(calcTideHeightRaw(port, dateObj, minutesFromMidnight) * 10) / 10;
     }
 
     /**
@@ -797,8 +813,8 @@
       const points = [];
       for (let m = 0; m <= 1440; m += stepMin) {
         const cm = calcTideHeightAtMinute(port, dateObj, m);
-        const prevCm = calcTideHeightAtMinute(port, dateObj, m - 30);
-        const nextCm = calcTideHeightAtMinute(port, dateObj, m + 30);
+        const prevCm = calcTideHeightRaw(port, dateObj, m - 30);
+        const nextCm = calcTideHeightRaw(port, dateObj, m + 30);
         const speedCmPerHour = Math.round((nextCm - prevCm) * 10) / 10; // 1時間あたりの潮位変化量(cm/h)
         points.push({
           minute: m,
@@ -808,15 +824,14 @@
         });
       }
 
-      // 満潮・干潮（極大・極小）の検出（5分精度で探索）
+      // 満潮・干潮（極大・極小）の検出（丸め前の連続値で1分精度探索）
       const extrema = [];
-      for (let m = 5; m <= 1435; m += 5) {
-        const hPrev = calcTideHeightAtMinute(port, dateObj, m - 5);
-        const hCurr = calcTideHeightAtMinute(port, dateObj, m);
-        const hNext = calcTideHeightAtMinute(port, dateObj, m + 5);
+      for (let m = 1; m <= 1439; m++) {
+        const hPrev = calcTideHeightRaw(port, dateObj, m - 1);
+        const hCurr = calcTideHeightRaw(port, dateObj, m);
+        const hNext = calcTideHeightRaw(port, dateObj, m + 1);
 
         if (hCurr >= hPrev && hCurr > hNext) {
-          // 近接重複排除 (60分以内)
           if (!extrema.length || m - extrema[extrema.length - 1].minute > 90) {
             extrema.push({ type: 'high', label: '満潮', minute: m, timeStr: minutesToHHMM(m), cm: Math.round(hCurr) });
           }
@@ -827,8 +842,8 @@
         }
       }
 
-      // その日の最大潮位変化スピード基準値（港ごとのスケール正規化用）
-      const maxTheoreticalSpeed = (port.m2Amp + port.s2Amp) * 0.52;
+      // その日の最大潮位変化スピード基準値（日本海側の小潮差港でも相対流速を適正評価）
+      const maxTheoreticalSpeed = (port.m2Amp + port.s2Amp + (port.k1Amp + port.o1Amp) * 0.35) * 0.48;
 
       // 各ポイントのBI値（Bite Index: 0〜100）を算出
       points.forEach(pt => {
@@ -838,10 +853,10 @@
         // 1. 潮の動き・流速スコア (0〜45点)
         // 潮が動いている（特に上げ三分〜七分、下げ三分〜七分）で高得点、潮止まりで低得点
         const absSpeed = Math.abs(pt.speedCmPerHour);
-        const speedRatio = Math.min(1.15, absSpeed / Math.max(12, maxTheoreticalSpeed));
+        const speedRatio = Math.min(1.15, absSpeed / Math.max(3.2, maxTheoreticalSpeed));
         let tideScore = Math.round(speedRatio * 36);
         // 上げ潮（満潮へ向かう流れ）は接岸傾向で微ボーナス
-        if (pt.speedCmPerHour > 4) tideScore += 4;
+        if (pt.speedCmPerHour > Math.max(1.2, maxTheoreticalSpeed * 0.2)) tideScore += 4;
         // 潮替わり前後（満干潮から35〜90分前後：動き出し・効き始め）ボーナス
         extrema.forEach(ex => {
           const diff = Math.abs(pt.minute - ex.minute);
@@ -891,7 +906,7 @@
         pt.bi = totalBi;
         pt.biFactors = { tideScore, astroScore, weatherScore };
         pt.biRank = getBiRank(totalBi);
-        pt.tideStateLabel = getTideFlowLabel(pt.speedCmPerHour);
+        pt.tideStateLabel = getTideFlowLabel(pt.speedCmPerHour, maxTheoreticalSpeed);
       });
 
       // 1時間ごとのサマリー配列 (0時〜23時)
@@ -926,11 +941,13 @@
       return { rank: 'D', label: '潮止まり・待機', color: '#64748b', bgClass: 'bg-slate-700/40 text-slate-400 border-slate-600/40' };
     }
 
-    function getTideFlowLabel(speedCmPerHour) {
-      if (speedCmPerHour > 18) return '↗ 上げ潮 (急流)';
-      if (speedCmPerHour > 5)  return '↗ 上げ潮 (順流)';
-      if (speedCmPerHour < -18) return '↘ 下げ潮 (急流)';
-      if (speedCmPerHour < -5)  return '↘ 下げ潮 (順流)';
+    function getTideFlowLabel(speedCmPerHour, refMaxSpeed = 25) {
+      const fastThresh = Math.max(3.0, refMaxSpeed * 0.55);
+      const moveThresh = Math.max(1.0, refMaxSpeed * 0.16);
+      if (speedCmPerHour > fastThresh) return '↗ 上げ潮 (急流)';
+      if (speedCmPerHour > moveThresh)  return '↗ 上げ潮 (順流)';
+      if (speedCmPerHour < -fastThresh) return '↘ 下げ潮 (急流)';
+      if (speedCmPerHour < -moveThresh) return '↘ 下げ潮 (順流)';
       return '− 潮止まり前後';
     }
 
@@ -1162,7 +1179,13 @@
     function getHourlyWeatherForDate(port, dateObj) {
       const dateKey = formatDateKey(dateObj);
       const cached = state.weatherCache[port.id];
-      if (cached && cached.byDate && cached.byDate[dateKey] && cached.byDate[dateKey].length === 24) {
+      if (
+        cached &&
+        cached.byDate &&
+        Array.isArray(cached.byDate[dateKey]) &&
+        cached.byDate[dateKey].length === 24 &&
+        cached.byDate[dateKey].every(Boolean)
+      ) {
         return cached.byDate[dateKey];
       }
       return generateFallbackWeatherForDate(port, dateObj);
@@ -1268,7 +1291,7 @@
       document.getElementById('currentBiValue').textContent = biVal;
       const biRankBadge = document.getElementById('biRankBadge');
       biRankBadge.textContent = biRankObj.rank;
-      biRankBadge.className = `px-1.5 py-0.2 rounded text-[9px] font-black border ${biRankObj.bgClass}`;
+      biRankBadge.className = `px-1.5 py-0.5 rounded text-[9px] font-black border ${biRankObj.bgClass}`;
       const biShortStatus = document.getElementById('biShortStatus');
       biShortStatus.textContent = biRankObj.label;
       biShortStatus.style.color = biRankObj.color;
@@ -1339,7 +1362,7 @@
               <div class="flex items-center gap-1.5">
                 <span class="text-[11px] font-extrabold text-amber-300 shrink-0">${medals[idx]}</span>
                 <span class="font-mono font-black text-xs sm:text-sm text-white">${pt.rangeStr}</span>
-                <span class="text-[10px] font-mono text-sky-300 bg-sky-500/15 px-1.5 py-0.2 rounded">頂点 ${pt.peakTimeStr}</span>
+                <span class="text-[10px] font-mono text-sky-300 bg-sky-500/15 px-1.5 py-0.5 rounded">頂点 ${pt.peakTimeStr}</span>
               </div>
               <div class="text-[10px] text-slate-300 truncate mt-0.5">
                 <i class="fa-solid fa-bolt text-amber-400 mr-1"></i>${pt.reasonText}
@@ -1399,7 +1422,7 @@
       document.getElementById('inspBiScore').textContent = pt.bi;
       const rankBadge = document.getElementById('inspBiRank');
       rankBadge.textContent = pt.biRank.rank;
-      rankBadge.className = `px-1.5 py-0.2 rounded text-[9px] font-bold border ${pt.biRank.bgClass}`;
+      rankBadge.className = `px-1.5 py-0.5 rounded text-[9px] font-bold border ${pt.biRank.bgClass}`;
 
       document.getElementById('inspWeather').textContent = `${w.weatherInfo.emoji}${w.weatherInfo.label}`;
       document.getElementById('inspTemp').textContent = `${w.temp.toFixed(1)}℃`;
@@ -1451,7 +1474,7 @@
               <span class="text-[9px] text-sky-300 font-mono">(${w.precipProb}%)</span>
             </td>
             <td class="py-1.5 text-emerald-300 font-semibold">
-              <i class="fa-solid fa-location-arrow text-[9px] mr-0.5" style="transform: rotate(${w.windDir + 135}deg)"></i>${w.windDirJP}
+              <i class="fa-solid fa-location-arrow inline-block text-[9px] mr-0.5" style="transform: rotate(${w.windDir + 135}deg)"></i>${w.windDirJP}
               <span class="font-mono">${w.windSpeed.toFixed(1)}</span>
             </td>
             <td class="py-1.5 font-mono text-slate-300">${w.pressure}</td>
@@ -1497,13 +1520,18 @@
 
       const { points, sunMoon, extrema } = state.dayData;
 
-      // Y軸スケール（潮位cm）の算出
+      // Y軸スケール（潮位cm）の算出（日本海側の小潮差港でも波形が大きく見やすいよう自動スケール）
       const allCm = points.map(p => p.cm);
       const minCmRaw = Math.min(...allCm);
       const maxCmRaw = Math.max(...allCm);
-      const minCm = Math.floor((minCmRaw - 20) / 20) * 20;
-      const maxCm = Math.ceil((maxCmRaw + 25) / 20) * 20;
-      const cmRange = Math.max(40, maxCm - minCm);
+      const isSmallTideRange = (maxCmRaw - minCmRaw) < 40;
+      const minCm = isSmallTideRange
+        ? Math.floor((minCmRaw - 6) / 10) * 10
+        : Math.floor((minCmRaw - 20) / 20) * 20;
+      const maxCm = isSmallTideRange
+        ? Math.ceil((maxCmRaw + 8) / 10) * 10
+        : Math.ceil((maxCmRaw + 25) / 20) * 20;
+      const cmRange = Math.max(isSmallTideRange ? 20 : 40, maxCm - minCm);
 
       const minToX = (m) => Number((pad.left + (m / 1440) * plotW).toFixed(1));
       const cmToY = (cm) => Number((pad.top + plotH - ((cm - minCm) / cmRange) * plotH).toFixed(1));
@@ -1543,7 +1571,7 @@
       addMazumeBand(sunMoon.eveningMazume.start, sunMoon.eveningMazume.end, '夕マズメ');
 
       // 2. 背景グリッド線（潮位Y軸 & 時刻X軸）
-      const cmStep = cmRange > 200 ? 60 : 40;
+      const cmStep = isSmallTideRange ? 10 : (cmRange > 200 ? 60 : 40);
       for (let c = minCm; c <= maxCm; c += cmStep) {
         const y = cmToY(c);
         parts.push(`<line x1="${pad.left}" y1="${y}" x2="${pad.left + plotW}" y2="${y}" stroke="rgba(148,163,184,0.14)" stroke-width="1" />`);
@@ -2008,6 +2036,13 @@
       // 4. BIバー重ね表示トグル
       document.getElementById('toggleBiOverlay').addEventListener('change', (e) => {
         state.showBiOverlay = e.target.checked;
+        drawTideChart();
+      });
+
+      // インスペクターの時刻バッジをタップで現在時刻表示にリセット
+      document.getElementById('inspTime').addEventListener('click', () => {
+        state.inspectMinutes = null;
+        renderDashboardCards();
         drawTideChart();
       });
 
